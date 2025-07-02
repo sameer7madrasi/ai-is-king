@@ -67,7 +67,7 @@ export default function Home() {
               width={20}
               height={20}
             />
-            Deploy now
+            Upload your data now
           </a>
           <a
             className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
@@ -80,7 +80,6 @@ export default function Home() {
         </div>
 
         <main style={{ padding: 32, maxWidth: 600, margin: "0 auto" }}>
-          <h1>Upload Data for Insights</h1>
           <input type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} />
           {loading && <p>Loading...</p>}
           {error && <p style={{ color: "red" }}>{error}</p>}
