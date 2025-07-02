@@ -88,7 +88,7 @@ export default function Home() {
           {error && <p style={{ color: "red" }}>{error}</p>}
           {insights && (
             <div style={{ marginTop: 24 }}>
-              <h2>Insights</h2>
+              <h2>Your Data</h2>
               <pre style={{ background: "#f4f4f4", padding: 16 }}>
                 {JSON.stringify(insights, null, 2)}
               </pre>
