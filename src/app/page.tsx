@@ -29,7 +29,7 @@ export default function Dashboard() {
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Data</h2>
               <p className="text-gray-600">
-                Drop in some CSV or Excel files and let's see what we can discover
+                Drop in some CSV or Excel files and let&apos;s see what we can discover
               </p>
             </div>
           </Link>
@@ -44,7 +44,7 @@ export default function Dashboard() {
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">View History</h2>
               <p className="text-gray-600">
-                Check out all the data you've uploaded and track your progress
+                Check out all the data you&apos;ve uploaded and track your progress
               </p>
             </div>
           </Link>
@@ -62,7 +62,7 @@ export default function Dashboard() {
             href="/upload"
             className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-lg"
           >
-            Let's Get Started →
+            Let&apos;s Get Started →
           </Link>
         </div>
       </div>

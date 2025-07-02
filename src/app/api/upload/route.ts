@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import { databaseService } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -40,28 +38,27 @@ export async function POST(req: NextRequest) {
       console.log('Parsing Excel file...');
       // Parse Excel file
       try {
-        const workbook = XLSX.read(buffer, { type: 'buffer' });
-        console.log('Workbook sheets:', workbook.SheetNames);
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        console.log('Sheet name:', sheetName);
-        console.log('Sheet range:', sheet['!ref']);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+        console.log('Workbook sheets:', workbook.worksheets.map(ws => ws.name));
+        const worksheet = workbook.worksheets[0];
+        console.log('Sheet name:', worksheet.name);
         
         // Find the actual data table by looking for the first row with multiple non-empty cells
-        const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
         let headerRow = -1;
         let dataStartRow = -1;
         
         // Find the header row (first row with multiple non-empty cells)
-        for (let row = range.s.r; row <= range.e.r; row++) {
+        for (let row = 1; row <= worksheet.rowCount; row++) {
+          const rowData = worksheet.getRow(row);
           let nonEmptyCells = 0;
-          for (let col = range.s.c; col <= range.e.c; col++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-            const cell = sheet[cellAddress];
-            if (cell && cell.v !== null && cell.v !== undefined && cell.v !== '') {
+          
+          rowData.eachCell((cell) => {
+            if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
               nonEmptyCells++;
             }
-          }
+          });
+          
           if (nonEmptyCells >= 2) { // At least 2 columns to be considered a header
             headerRow = row;
             dataStartRow = row + 1;
@@ -77,32 +74,42 @@ export async function POST(req: NextRequest) {
         console.log('Data starts at row:', dataStartRow);
         
         // Get column headers from the detected header row
-        const headers = [];
-        for (let col = range.s.c; col <= range.e.c; col++) {
-          const cellAddress = XLSX.utils.encode_cell({ r: headerRow, c: col });
-          const cell = sheet[cellAddress];
-          if (cell && cell.v !== null && cell.v !== undefined && cell.v !== '') {
-            headers.push(cell.v.toString());
+        const headerRowData = worksheet.getRow(headerRow);
+        const headers: string[] = [];
+        
+        headerRowData.eachCell((cell, colNumber) => {
+          if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+            headers[colNumber - 1] = cell.value.toString();
           } else {
-            headers.push(`Column${col + 1}`);
+            headers[colNumber - 1] = `Column${colNumber}`;
           }
-        }
+        });
+        
         columns = headers;
         console.log('Column headers:', columns);
         
         // Parse data starting from the row after the header
-        data = XLSX.utils.sheet_to_json(sheet, { 
-          defval: null, 
-          header: headers,
-          range: dataStartRow
-        });
-        
-        // Filter out completely empty rows
-        data = data.filter(row => {
-          return Object.values(row).some(value => 
-            value !== null && value !== undefined && value !== ''
-          );
-        });
+        data = [];
+        for (let row = dataStartRow; row <= worksheet.rowCount; row++) {
+          const rowData = worksheet.getRow(row);
+          const rowObject: Record<string, any> = {};
+          let hasData = false;
+          
+          rowData.eachCell((cell, colNumber) => {
+            const header = headers[colNumber - 1];
+            if (header) {
+              rowObject[header] = cell.value;
+              if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+                hasData = true;
+              }
+            }
+          });
+          
+          // Only add rows that have at least some data
+          if (hasData) {
+            data.push(rowObject);
+          }
+        }
         
         console.log('Parsed data length:', data.length);
         console.log('First row of data:', data[0]);
