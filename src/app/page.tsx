@@ -1,6 +1,34 @@
+"use client";
+
 import Image from "next/image";
+import React, { useState } from "react";
 
 export default function Home() {
+  const [insights, setInsights] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setLoading(true);
+    setError("");
+    const formData = new FormData();
+    formData.append("file", e.target.files[0]);
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Failed to upload file");
+      const data = await res.json();
+      setInsights(data);
+    } catch (err: any) {
+      setError(err.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
@@ -50,6 +78,21 @@ export default function Home() {
             Read our docs
           </a>
         </div>
+
+        <main style={{ padding: 32, maxWidth: 600, margin: "0 auto" }}>
+          <h1>Upload Data for Insights</h1>
+          <input type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChange} />
+          {loading && <p>Loading...</p>}
+          {error && <p style={{ color: "red" }}>{error}</p>}
+          {insights && (
+            <div style={{ marginTop: 24 }}>
+              <h2>Insights</h2>
+              <pre style={{ background: "#f4f4f4", padding: 16 }}>
+                {JSON.stringify(insights, null, 2)}
+              </pre>
+            </div>
+          )}
+        </main>
       </main>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
         <a
