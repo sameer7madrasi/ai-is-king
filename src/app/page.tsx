@@ -19,7 +19,10 @@ export default function Home() {
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error("Failed to upload file");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to upload file");
+      }
       const data = await res.json();
       setInsights(data);
     } catch (err: any) {
