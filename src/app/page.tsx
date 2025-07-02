@@ -27,9 +27,9 @@ export default function Dashboard() {
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">
                 📁
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Data</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Make An Entry</h2>
               <p className="text-gray-600">
-                Drop in some CSV or Excel files and let&apos;s see what we can discover
+                Drop in CSV, Excel, or text files and let&apos;s see what we can discover
               </p>
             </div>
           </Link>
@@ -56,7 +56,7 @@ export default function Dashboard() {
             🚀 Ready to make some data magic happen?
           </h3>
           <p className="text-lg text-gray-600 mb-6">
-            Upload your first file and start building your data empire
+            Upload files or paste text to start building your data empire
           </p>
           <Link
             href="/upload"

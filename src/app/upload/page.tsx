@@ -18,6 +18,8 @@ export default function UploadPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  const [textInput, setTextInput] = useState("");
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setLoading(true);
@@ -46,10 +48,37 @@ export default function UploadPage() {
     }
   };
 
+  const handleTextSubmit = async () => {
+    if (!textInput.trim()) return;
+    setLoading(true);
+    setError("");
+    
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: textInput }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to process text");
+      }
+      const data = await res.json();
+      console.log('Text processing response:', data);
+      setInsights(data);
+    } catch (err: any) {
+      setError(err.message || "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Upload Data</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Make An Entry</h1>
         <p className="text-lg text-gray-600">
           Upload your CSV or Excel files to get instant insights
         </p>
@@ -85,12 +114,12 @@ export default function UploadPage() {
                 name="file-upload"
                 type="file"
                 className="sr-only"
-                accept=".csv,.xlsx,.xls"
+                accept=".csv,.xlsx,.xls,.txt,.text"
                 onChange={handleFileChange}
               />
             </div>
             <p className="mt-2 text-sm text-gray-500">
-              CSV, XLSX, or XLS files up to 10MB
+              CSV, XLSX, XLS, TXT, or TEXT files up to 10MB
             </p>
           </div>
         </div>
@@ -192,6 +221,28 @@ export default function UploadPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Text Input Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Or Paste Text Directly</h2>
+        <div className="space-y-4">
+          <textarea
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            placeholder="Paste your text here... It can be structured data, lists, JSON, or plain text. Our AI will automatically detect the format and extract meaningful insights."
+            className="w-full h-48 p-4 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <div className="flex justify-end">
+            <button
+              onClick={handleTextSubmit}
+              disabled={!textInput.trim() || loading}
+              className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium py-2 px-6 rounded-md transition-colors"
+            >
+              {loading ? "Processing..." : "Process Text"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

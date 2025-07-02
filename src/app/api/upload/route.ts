@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Papa from 'papaparse';
 import * as ExcelJS from 'exceljs';
 import { databaseService } from '@/lib/database';
+import { TextProcessor } from '@/lib/textProcessor';
 import { v4 as uuidv4 } from 'uuid';
 
 export const config = {
@@ -13,6 +14,54 @@ export const config = {
 export async function POST(req: NextRequest) {
   console.log('API route called');
   try {
+    const contentType = req.headers.get('content-type');
+    
+    if (contentType?.includes('application/json')) {
+      // Handle text input
+      const body = await req.json();
+      const text = body.text;
+      
+      if (!text || typeof text !== 'string') {
+        return NextResponse.json({ error: 'No text provided' }, { status: 400 });
+      }
+      
+      console.log('Text input received, length:', text.length);
+      
+      // Process text using TextProcessor
+      const result = await TextProcessor.processText(text);
+      
+      const response = {
+        fileId: uuidv4(),
+        numRows: result.data.length,
+        numColumns: result.columns.length,
+        columns: result.columns,
+        columnTypes: result.columnTypes,
+        sample: result.data.slice(0, 5),
+        metadata: result.metadata,
+      };
+      
+      console.log('Text processing response:', response);
+      
+      // Save data to database
+      try {
+        await databaseService.saveFileData(
+          response.fileId,
+          'text_input.txt',
+          text.length,
+          result.data,
+          result.columns,
+          result.columnTypes
+        );
+        console.log('Text data saved to database successfully');
+      } catch (dbError) {
+        console.error('Database save error:', dbError);
+        // Continue with response even if database save fails
+      }
+      
+      return NextResponse.json(response);
+    }
+    
+    // Handle file upload
     const formData = await req.formData();
     const file = formData.get('file');
     console.log('File received:', file ? 'yes' : 'no');
@@ -117,6 +166,17 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         console.error('Excel parse error:', e);
         parseError = `Failed to parse Excel file: ${e instanceof Error ? e.message : 'Unknown error'}`;
+      }
+    } else if (fileName && (fileName.endsWith('.txt') || fileName.endsWith('.text'))) {
+      console.log('Processing text file...');
+      try {
+        const result = await TextProcessor.processText(text);
+        data = result.data;
+        columns = result.columns;
+        console.log('Text processed successfully. Rows:', data.length, 'Columns:', columns.length, 'Method:', result.metadata.processingMethod);
+      } catch (e) {
+        console.error('Text processing error:', e);
+        parseError = `Failed to process text file: ${e instanceof Error ? e.message : 'Unknown error'}`;
       }
     } else {
       console.log('Parsing CSV file...');
