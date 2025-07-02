@@ -3,6 +3,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { databaseService } from '@/lib/database';
+import { v4 as uuidv4 } from 'uuid';
 
 export const config = {
   api: {
@@ -137,6 +139,7 @@ export async function POST(req: NextRequest) {
     }
 
     const response = {
+      fileId: uuidv4(),
       numRows,
       numColumns: columns.length,
       columns,
@@ -144,6 +147,23 @@ export async function POST(req: NextRequest) {
       sample: data.slice(0, 5),
     };
     console.log('Sending response:', response);
+    
+    // Save data to database
+    try {
+      await databaseService.saveFileData(
+        response.fileId,
+        fileName || 'unknown',
+        buffer.length,
+        data,
+        columns,
+        columnTypes
+      );
+      console.log('Data saved to database successfully');
+    } catch (dbError) {
+      console.error('Database save error:', dbError);
+      // Continue with response even if database save fails
+    }
+    
     return NextResponse.json(response);
   } catch (error) {
     console.error('Unexpected error:', error);
