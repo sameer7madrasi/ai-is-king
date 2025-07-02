@@ -1,2 +1,0 @@
-# ai-is-king
-vamos
