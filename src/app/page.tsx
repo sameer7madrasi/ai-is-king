@@ -31,6 +31,10 @@ export default function Home() {
         throw new Error(errorData.error || "Failed to upload file");
       }
       const data = await res.json();
+      console.log('API Response received:', data);
+      console.log('Sample data:', data.sample);
+      console.log('Columns:', data.columns);
+      console.log('Column types:', data.columnTypes);
       setInsights(data);
     } catch (err: any) {
       setError(err.message || "Unknown error");

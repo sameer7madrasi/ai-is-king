@@ -39,14 +39,75 @@ export async function POST(req: NextRequest) {
       // Parse Excel file
       try {
         const workbook = XLSX.read(buffer, { type: 'buffer' });
+        console.log('Workbook sheets:', workbook.SheetNames);
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        data = XLSX.utils.sheet_to_json(sheet, { defval: null });
-        columns = sheet ? Object.keys(XLSX.utils.sheet_to_json(sheet, { header: 1 })[0] || {}) : [];
-        console.log('Excel parsed successfully. Rows:', data.length, 'Columns:', columns.length);
+        console.log('Sheet name:', sheetName);
+        console.log('Sheet range:', sheet['!ref']);
+        
+        // Find the actual data table by looking for the first row with multiple non-empty cells
+        const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+        let headerRow = -1;
+        let dataStartRow = -1;
+        
+        // Find the header row (first row with multiple non-empty cells)
+        for (let row = range.s.r; row <= range.e.r; row++) {
+          let nonEmptyCells = 0;
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+            const cell = sheet[cellAddress];
+            if (cell && cell.v !== null && cell.v !== undefined && cell.v !== '') {
+              nonEmptyCells++;
+            }
+          }
+          if (nonEmptyCells >= 2) { // At least 2 columns to be considered a header
+            headerRow = row;
+            dataStartRow = row + 1;
+            break;
+          }
+        }
+        
+        if (headerRow === -1) {
+          throw new Error('Could not find a valid header row in the sheet');
+        }
+        
+        console.log('Header row found at:', headerRow);
+        console.log('Data starts at row:', dataStartRow);
+        
+        // Get column headers from the detected header row
+        const headers = [];
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: headerRow, c: col });
+          const cell = sheet[cellAddress];
+          if (cell && cell.v !== null && cell.v !== undefined && cell.v !== '') {
+            headers.push(cell.v.toString());
+          } else {
+            headers.push(`Column${col + 1}`);
+          }
+        }
+        columns = headers;
+        console.log('Column headers:', columns);
+        
+        // Parse data starting from the row after the header
+        data = XLSX.utils.sheet_to_json(sheet, { 
+          defval: null, 
+          header: headers,
+          range: dataStartRow
+        });
+        
+        // Filter out completely empty rows
+        data = data.filter(row => {
+          return Object.values(row).some(value => 
+            value !== null && value !== undefined && value !== ''
+          );
+        });
+        
+        console.log('Parsed data length:', data.length);
+        console.log('First row of data:', data[0]);
+        console.log('Excel parsed successfully. Rows:', data.length, 'Columns:', columns);
       } catch (e) {
         console.error('Excel parse error:', e);
-        parseError = 'Failed to parse Excel file';
+        parseError = `Failed to parse Excel file: ${e instanceof Error ? e.message : 'Unknown error'}`;
       }
     } else {
       console.log('Parsing CSV file...');
