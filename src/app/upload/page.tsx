@@ -95,7 +95,7 @@ export default function UploadPage() {
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 placeholder="Write your entry here... Share your thoughts, paste structured data, or describe your experiences. Our AI will automatically detect the format and extract meaningful insights."
-                className="w-full h-64 p-6 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-600 text-lg leading-relaxed"
+                className="w-full h-64 p-6 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-600 text-lg leading-relaxed text-gray-900"
               />
               <div className="flex justify-end">
                 <button
