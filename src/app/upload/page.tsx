@@ -261,7 +261,9 @@ export default function UploadPage() {
                             className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
                           >
                             {row[column] !== null && row[column] !== undefined
-                              ? String(row[column])
+                              ? typeof row[column] === 'object'
+                                ? JSON.stringify(row[column])
+                                : String(row[column])
                               : "-"}
                           </td>
                         ))}

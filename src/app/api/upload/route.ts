@@ -11,6 +11,27 @@ export const config = {
   },
 };
 
+// Helper to get display value from ExcelJS cell
+function getCellDisplayValue(cellValue: any): any {
+  if (cellValue == null) return '';
+  if (typeof cellValue === 'object') {
+    // Formula cell
+    if ('formula' in cellValue) {
+      if ('result' in cellValue) return getCellDisplayValue(cellValue.result);
+      return `=${cellValue.formula}`;
+    }
+    // Rich text
+    if ('richText' in cellValue && Array.isArray(cellValue.richText)) {
+      return cellValue.richText.map((part: any) => part.text).join('');
+    }
+    // Date
+    if (cellValue instanceof Date) {
+      return cellValue.toISOString().split('T')[0];
+    }
+  }
+  return cellValue;
+}
+
 export async function POST(req: NextRequest) {
   console.log('API route called');
   try {
@@ -147,8 +168,9 @@ export async function POST(req: NextRequest) {
           rowData.eachCell((cell, colNumber) => {
             const header = headers[colNumber - 1];
             if (header) {
-              rowObject[header] = cell.value;
-              if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+              const displayValue = getCellDisplayValue(cell.value);
+              rowObject[header] = displayValue;
+              if (displayValue !== null && displayValue !== undefined && displayValue !== '') {
                 hasData = true;
               }
             }
