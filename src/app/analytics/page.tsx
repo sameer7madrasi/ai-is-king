@@ -44,11 +44,11 @@ const CATEGORIES = [
 
 export default function AnalyticsPage() {
   return (
-    <div className="p-8 min-h-screen bg-gray-50">
+    <div className="p-8 min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-2">Your Life Analytics</h1>
-          <p className="text-lg text-gray-600">Explore insights from every corner of your life. Click a category to dive deeper.</p>
+          <h1 className="text-4xl font-extrabold text-gray-900 dark:text-gray-100 mb-2">Your Life Analytics</h1>
+          <p className="text-lg text-gray-600 dark:text-gray-300">Explore insights from every corner of your life. Click a category to dive deeper.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
           {CATEGORIES.map((cat) => (

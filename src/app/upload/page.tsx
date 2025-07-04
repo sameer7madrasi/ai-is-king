@@ -76,32 +76,32 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
         <div className="max-w-4xl w-full">
           {/* Main Title */}
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Make An Entry</h1>
-            <p className="text-xl text-gray-600">
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">Make An Entry</h1>
+            <p className="text-xl text-gray-600 dark:text-gray-300">
               Share your thoughts, data, or experiences. Our AI will help you discover insights.
             </p>
           </div>
 
           {/* Primary Text Input Section */}
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 mb-8">
             <div className="space-y-4">
               <textarea
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 placeholder="Write your entry here... Share your thoughts, paste structured data, or describe your experiences. Our AI will automatically detect the format and extract meaningful insights."
-                className="w-full h-64 p-6 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-600 text-lg leading-relaxed text-gray-900"
+                className="w-full h-64 p-6 border border-gray-200 dark:border-gray-700 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-600 dark:placeholder-gray-400 text-lg leading-relaxed text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900"
               />
               <div className="flex justify-end">
                 <button
                   onClick={handleTextSubmit}
                   disabled={!textInput.trim() || loading}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors text-lg"
                 >
                   {loading ? "Processing..." : "Submit Entry"}
                 </button>
@@ -111,24 +111,24 @@ export default function UploadPage() {
 
           {/* Divider */}
           <div className="flex items-center justify-center mb-8">
-            <div className="flex-1 border-t border-gray-300"></div>
-            <span className="px-4 text-gray-500 font-medium text-lg">Or</span>
-            <div className="flex-1 border-t border-gray-300"></div>
+            <div className="flex-1 border-t border-gray-300 dark:border-gray-700"></div>
+            <span className="px-4 text-gray-500 dark:text-gray-400 font-medium text-lg">Or</span>
+            <div className="flex-1 border-t border-gray-300 dark:border-gray-700"></div>
           </div>
 
           {/* File Upload Section */}
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 text-center">
               Upload Your Own Personal Dataset
             </h2>
-            <p className="text-gray-600 mb-6 text-center">
+            <p className="text-gray-600 dark:text-gray-300 mb-6 text-center">
               Import CSV, Excel, or text files to analyze your data
             </p>
             
-            <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-8">
+            <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8">
               <div className="text-center">
                 <svg
-                  className="mx-auto h-16 w-16 text-gray-400 mb-4"
+                  className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4"
                   stroke="currentColor"
                   fill="none"
                   viewBox="0 0 48 48"
@@ -157,7 +157,7 @@ export default function UploadPage() {
                     onChange={handleFileChange}
                   />
                 </div>
-                <p className="mt-3 text-sm text-gray-500">
+                <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
                   CSV, XLSX, XLS, TXT, or TEXT files up to 10MB
                 </p>
               </div>

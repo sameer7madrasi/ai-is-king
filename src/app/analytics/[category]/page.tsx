@@ -73,27 +73,27 @@ export default function CategoryInsightsPage({ params }: { params: { category: s
   const insights = MOCK_INSIGHTS[category.slug] || [];
 
   return (
-    <div className="p-8 min-h-screen bg-gray-50">
+    <div className="p-8 min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center mb-8">
           <div className="mr-4">
-            <category.icon className="h-14 w-14 text-blue-500" aria-hidden="true" />
+            <category.icon className="h-14 w-14 text-blue-500 dark:text-blue-400" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-1">{category.name} Insights</h1>
-            <p className="text-gray-600">{category.description}</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">{category.name} Insights</h1>
+            <p className="text-gray-600 dark:text-gray-300">{category.description}</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Recent Insights</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Recent Insights</h2>
           {insights.length === 0 ? (
-            <p className="text-gray-500">No insights available yet for this category.</p>
+            <p className="text-gray-500 dark:text-gray-300">No insights available yet for this category.</p>
           ) : (
             <ul className="space-y-4">
               {insights.map((insight, idx) => (
-                <li key={idx} className="border-l-4 border-blue-200 pl-4">
-                  <h3 className="font-medium text-gray-900">{insight.title}</h3>
-                  <p className="text-gray-600 text-sm">{insight.detail}</p>
+                <li key={idx} className="border-l-4 border-blue-200 dark:border-blue-400 pl-4">
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100">{insight.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-300 text-sm">{insight.detail}</p>
                 </li>
               ))}
             </ul>
