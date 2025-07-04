@@ -1,6 +1,7 @@
 import { DomainAnalyzer, DomainInsight, DataDomain } from './domainAnalyzer';
 import { CorrelationAnalyzer, DatasetMetadata, CrossDatasetInsight } from './correlationAnalyzer';
 import { AIAnalyticsService, AIInsight, AIDataAnalysis } from './aiAnalyticsService';
+import { DataPipeline, DomainMetrics, CrossDomainAnalysis } from './dataPipeline';
 
 export interface AnalyticsResult {
   summary: {
@@ -8,6 +9,10 @@ export interface AnalyticsResult {
     totalRecords: number;
     domains: Record<string, number>;
     lastUpdated: Date;
+    // New aggregated metrics
+    totalMetrics: number;
+    totalEntries: number;
+    metricDomains: string[];
   };
   insights: DomainInsight[];
   crossDatasetInsights: CrossDatasetInsight[];
@@ -17,10 +22,24 @@ export interface AnalyticsResult {
   aiInsights: AIInsight[];
   aiAnalysis: AIDataAnalysis | null;
   aiSummary: string;
+  // New aggregated metrics from data pipeline
+  domainMetrics: DomainMetrics[];
+  crossDomainAnalysis: CrossDomainAnalysis;
+  aggregatedInsights: AggregatedInsight[];
+}
+
+export interface AggregatedInsight {
+  domain: string;
+  metric: string;
+  total: number;
+  average: number;
+  trend: 'increasing' | 'decreasing' | 'stable';
+  description: string;
+  priority: 'high' | 'medium' | 'low';
 }
 
 export interface ChartSuggestion {
-  type: 'line' | 'bar' | 'pie' | 'scatter' | 'area';
+  type: 'line' | 'bar' | 'pie' | 'scatter' | 'heatmap' | 'timeline';
   title: string;
   description: string;
   data: any;
@@ -29,21 +48,33 @@ export interface ChartSuggestion {
 
 export class AnalyticsService {
   /**
-   * Analyze all datasets and generate comprehensive insights
+   * Analyze all data and generate comprehensive insights
    */
   static async analyzeAllData(): Promise<AnalyticsResult> {
     try {
       console.log('Analytics: Starting analysis...');
-      // Get all datasets from database
+      
+      // Build aggregated metrics using data pipeline
+      const pipelineResult = await DataPipeline.buildMetrics();
+      console.log('Analytics: Data pipeline completed:', {
+        totalMetrics: pipelineResult.summary.totalMetrics,
+        totalEntries: pipelineResult.summary.totalEntries,
+        domains: pipelineResult.summary.domains
+      });
+      
+      // Get all datasets from database for traditional analysis
       const datasets = await this.getAllDatasets();
       console.log('Analytics: Retrieved datasets:', datasets.length, datasets.map(d => d.name));
+      
       if (datasets.length === 0) {
         console.log('Analytics: No datasets found, returning empty result');
         return this.getEmptyResult();
       }
-      // Detect domains and generate insights for each dataset
+      
+      // Generate traditional insights
       const allInsights: DomainInsight[] = [];
       const datasetMetadata: DatasetMetadata[] = [];
+      
       for (const dataset of datasets) {
         console.log('Analytics: Processing dataset:', dataset.name, 'Rows:', dataset.data.length);
         
@@ -82,19 +113,25 @@ export class AnalyticsService {
           createdAt: new Date(dataset.createdAt)
         });
       }
+      
       // Find correlations between datasets
       const correlations = CorrelationAnalyzer.findCorrelations(datasetMetadata);
+      
       // Generate cross-dataset insights
       const crossDatasetInsights = CorrelationAnalyzer.generateCrossDatasetInsights(
         datasetMetadata,
         correlations
       );
+      
       // Generate recommendations
       const recommendations = this.generateRecommendations(allInsights, crossDatasetInsights);
+      
       // Generate chart suggestions
       const charts = this.generateChartSuggestions(allInsights, datasetMetadata);
+      
       // Generate AI-powered insights
       const aiAnalysis = await this.generateAIAnalysis(datasetMetadata);
+      
       // Defensive: ensure aiAnalysis is an object with arrays, or fallback to []
       const aiInsights = aiAnalysis && Array.isArray(aiAnalysis.keyInsights)
         ? [
@@ -103,12 +140,20 @@ export class AnalyticsService {
             ...(aiAnalysis.crossDatasetInsights || [])
           ]
         : [];
+      
+      // Generate aggregated insights from data pipeline
+      const aggregatedInsights = this.generateAggregatedInsights(pipelineResult.domainMetrics);
+      
       return {
         summary: {
           totalDatasets: datasets.length,
           totalRecords: datasets.reduce((sum, d) => sum + d.data.length, 0),
           domains: this.countDomains(datasetMetadata),
-          lastUpdated: new Date()
+          lastUpdated: new Date(),
+          // New aggregated metrics
+          totalMetrics: pipelineResult.summary.totalMetrics,
+          totalEntries: pipelineResult.summary.totalEntries,
+          metricDomains: pipelineResult.summary.domains
         },
         insights: allInsights.sort((a, b) => {
           // Sort by priority first, then by confidence
@@ -122,7 +167,11 @@ export class AnalyticsService {
         charts,
         aiInsights,
         aiAnalysis: aiAnalysis || null,
-        aiSummary: aiAnalysis?.summary || "No AI analysis available"
+        aiSummary: aiAnalysis?.summary || "No AI analysis available",
+        // New aggregated metrics from data pipeline
+        domainMetrics: pipelineResult.domainMetrics,
+        crossDomainAnalysis: pipelineResult.crossDomainAnalysis,
+        aggregatedInsights
       };
     } catch (error) {
       console.error('Error analyzing data:', error);
@@ -458,8 +507,74 @@ export class AnalyticsService {
   }
 
   /**
-   * Get empty result when no data is available
+   * Generate aggregated insights from domain metrics
    */
+  private static generateAggregatedInsights(domainMetrics: DomainMetrics[]): AggregatedInsight[] {
+    const insights: AggregatedInsight[] = [];
+    
+    domainMetrics.forEach(domainMetric => {
+      Object.entries(domainMetric.metrics).forEach(([metricName, aggregation]) => {
+        // Determine priority based on trend and value
+        let priority: 'high' | 'medium' | 'low' = 'medium';
+        if (aggregation.trend === 'decreasing' && aggregation.total > 100) {
+          priority = 'high';
+        } else if (aggregation.trend === 'increasing' && aggregation.total > 50) {
+          priority = 'high';
+        } else if (aggregation.total < 10) {
+          priority = 'low';
+        }
+        
+        // Generate description based on domain and metric
+        let description = '';
+        if (domainMetric.domain === 'sports') {
+          if (metricName === 'goals') {
+            description = `Total goals scored: ${aggregation.total}`;
+          } else if (metricName === 'assists') {
+            description = `Total assists: ${aggregation.total}`;
+          } else {
+            description = `Total ${metricName}: ${aggregation.total}`;
+          }
+        } else if (domainMetric.domain === 'financial') {
+          if (metricName === 'amount' || metricName === 'spending') {
+            description = `Total spending: $${aggregation.total.toFixed(2)}`;
+          } else if (metricName === 'savings') {
+            description = `Total savings: $${aggregation.total.toFixed(2)}`;
+          } else {
+            description = `Total ${metricName}: $${aggregation.total.toFixed(2)}`;
+          }
+        } else if (domainMetric.domain === 'health') {
+          if (metricName === 'steps') {
+            description = `Total steps: ${aggregation.total.toLocaleString()}`;
+          } else if (metricName === 'calories') {
+            description = `Total calories: ${aggregation.total.toLocaleString()}`;
+          } else {
+            description = `Total ${metricName}: ${aggregation.total.toLocaleString()}`;
+          }
+        } else {
+          description = `Total ${metricName}: ${aggregation.total}`;
+        }
+        
+        insights.push({
+          domain: domainMetric.domain,
+          metric: metricName,
+          total: aggregation.total,
+          average: aggregation.average,
+          trend: aggregation.trend,
+          description,
+          priority
+        });
+      });
+    });
+    
+    // Sort by priority and total value
+    return insights.sort((a, b) => {
+      const priorityOrder = { high: 3, medium: 2, low: 1 };
+      const aScore = priorityOrder[a.priority] * a.total;
+      const bScore = priorityOrder[b.priority] * b.total;
+      return bScore - aScore;
+    });
+  }
+
   /**
    * Generate AI-powered analysis for datasets
    */
@@ -482,7 +597,11 @@ export class AnalyticsService {
         totalDatasets: 0,
         totalRecords: 0,
         domains: {},
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
+        // New aggregated metrics
+        totalMetrics: 0,
+        totalEntries: 0,
+        metricDomains: []
       },
       insights: [],
       crossDatasetInsights: [],
@@ -494,7 +613,11 @@ export class AnalyticsService {
       charts: [],
       aiInsights: [],
       aiAnalysis: null,
-      aiSummary: "No data available for analysis"
+      aiSummary: "No data available for analysis",
+      // New aggregated metrics from data pipeline
+      domainMetrics: [],
+      crossDomainAnalysis: { correlations: [], combinedInsights: [], recommendations: [] },
+      aggregatedInsights: []
     };
   }
 } 
