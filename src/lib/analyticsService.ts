@@ -46,17 +46,31 @@ export class AnalyticsService {
       const datasetMetadata: DatasetMetadata[] = [];
       for (const dataset of datasets) {
         console.log('Analytics: Processing dataset:', dataset.name, 'Rows:', dataset.data.length);
-        const domain = DomainAnalyzer.detectDomain(
-          dataset.data, 
-          dataset.columns, 
-          dataset.columnTypes
-        );
-        const insights = DomainAnalyzer.generateDomainInsights(
-          dataset.data,
-          dataset.columns,
-          dataset.columnTypes,
-          domain
-        );
+        
+        // Check if this is NLP-processed data
+        const isNLPData = this.isNLPProcessedData(dataset);
+        let domain: any;
+        let insights: DomainInsight[] = [];
+        
+        if (isNLPData) {
+          console.log('Analytics: Detected NLP-processed data, using stored domain information');
+          domain = this.extractDomainFromNLPData(dataset);
+          insights = this.generateNLPInsights(dataset);
+        } else {
+          console.log('Analytics: Using standard domain detection');
+          domain = DomainAnalyzer.detectDomain(
+            dataset.data, 
+            dataset.columns, 
+            dataset.columnTypes
+          );
+          insights = DomainAnalyzer.generateDomainInsights(
+            dataset.data,
+            dataset.columns,
+            dataset.columnTypes,
+            domain
+          );
+        }
+        
         allInsights.push(...insights);
         datasetMetadata.push({
           id: dataset.id,
@@ -163,6 +177,105 @@ export class AnalyticsService {
       console.error('Error fetching datasets:', error);
       return [];
     }
+  }
+
+  /**
+   * Check if dataset is NLP-processed data
+   */
+  private static isNLPProcessedData(dataset: any): boolean {
+    return dataset.columns.includes('domain') && 
+           dataset.columns.includes('insights') && 
+           dataset.columns.includes('recommendations');
+  }
+
+  /**
+   * Extract domain information from NLP-processed data
+   */
+  private static extractDomainFromNLPData(dataset: any): any {
+    if (dataset.data.length === 0) {
+      return { type: 'general', confidence: 0.5, indicators: [], columns: dataset.columns };
+    }
+    
+    const firstRow = dataset.data[0];
+    const domain = firstRow.domain || 'general';
+    const confidence = firstRow.confidence || 0.8;
+    
+    return {
+      type: domain,
+      confidence: confidence,
+      indicators: ['nlp_processed'],
+      columns: dataset.columns
+    };
+  }
+
+  /**
+   * Generate insights from NLP-processed data
+   */
+  private static generateNLPInsights(dataset: any): DomainInsight[] {
+    const insights: DomainInsight[] = [];
+    
+    if (dataset.data.length === 0) return insights;
+    
+    const firstRow = dataset.data[0];
+    const domain = firstRow.domain || 'general';
+    const timestamp = Date.now();
+    
+    // Parse metrics if available
+    if (firstRow.metrics) {
+      try {
+        const metrics = JSON.parse(firstRow.metrics);
+        Object.entries(metrics).forEach(([key, value]) => {
+          if (typeof value === 'number' && value > 0) {
+            insights.push({
+              type: domain as any,
+              category: 'metrics',
+              title: `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`,
+              description: `Recorded ${value} ${key}`,
+              value: { [key]: value },
+              confidence: firstRow.confidence || 0.8,
+              priority: 'medium'
+            });
+          }
+        });
+      } catch (error) {
+        console.error('Error parsing metrics:', error);
+      }
+    }
+    
+    // Parse insights if available
+    if (firstRow.insights) {
+      const insightList = firstRow.insights.split('; ').filter((i: string) => i.trim());
+      insightList.forEach((insight: string, index: number) => {
+        insights.push({
+          type: domain as any,
+          category: 'nlp_insight',
+          title: `Insight ${index + 1}`,
+          description: insight,
+          value: { insight },
+          confidence: firstRow.confidence || 0.8,
+          priority: 'medium'
+        });
+      });
+    }
+    
+    // Parse recommendations if available
+    if (firstRow.recommendations) {
+      const recList = firstRow.recommendations.split('; ').filter((r: string) => r.trim());
+      recList.forEach((rec: string, index: number) => {
+        insights.push({
+          type: domain as any,
+          category: 'recommendation',
+          title: `Recommendation ${index + 1}`,
+          description: rec,
+          value: { recommendation: rec },
+          confidence: firstRow.confidence || 0.8,
+          priority: 'high',
+          recommendation: rec
+        });
+      });
+    }
+    
+    return insights;
   }
 
   /**

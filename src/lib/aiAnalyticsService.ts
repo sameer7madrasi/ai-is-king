@@ -135,7 +135,7 @@ export class AIAnalyticsService {
       const prompt = this.buildPersonalizedPrompt(data, columns, userContext);
       const response = await this.callServerAI(prompt);
       
-      return this.parseAIInsights(response);
+      return this.parseAIInsights([response]);
     } catch (error) {
       console.error('Personalized insights error:', error);
       return [];
@@ -173,7 +173,7 @@ export class AIAnalyticsService {
       const prompt = this.buildVisualizationPrompt(data, columns, insights);
       const response = await this.callServerAI(prompt);
       
-      return this.parseVisualizations(response);
+      return this.parseVisualizations([response]);
     } catch (error) {
       console.error('Visualization recommendations error:', error);
       return [];
@@ -242,7 +242,7 @@ export class AIAnalyticsService {
           count: values.length,
           uniqueCount: uniqueValues.length,
           topValues: Object.entries(valueCounts)
-            .sort(([,a], [,b]) => b - a)
+            .sort(([,a], [,b]) => (b as number) - (a as number))
             .slice(0, 5)
             .map(([val, count]) => ({ value: val, count }))
         };
@@ -277,7 +277,7 @@ export class AIAnalyticsService {
     const prompt = this.buildCrossDatasetPrompt(datasetsSummary, context);
     const response = await this.callServerAI(prompt);
     
-    return this.parseAIInsights(response);
+    return this.parseAIInsights([response]);
   }
 
   private static async generateOverallSummary(
@@ -314,7 +314,7 @@ export class AIAnalyticsService {
     const prompt = this.buildGlobalRecommendationsPrompt(datasets, allInsights, context);
     const response = await this.callServerAI(prompt);
     
-    return this.parseAIInsights(response);
+    return this.parseAIInsights([response]);
   }
 
   /**

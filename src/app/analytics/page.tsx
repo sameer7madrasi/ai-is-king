@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { AnalyticsResult } from '@/lib/analyticsService';
 import { DomainInsight } from '@/lib/domainAnalyzer';
 import { CrossDatasetInsight } from '@/lib/correlationAnalyzer';
+import InsightsByCategory from '@/components/InsightsByCategory';
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
@@ -243,35 +244,42 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* Key Insights */}
+        {/* Insights by Category */}
         {analytics.insights.length > 0 && (
           <div className="bg-white rounded-lg shadow p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Key Insights</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {analytics.insights.slice(0, 6).map((insight, index) => (
-                <div
-                  key={index}
-                  className={`p-4 rounded-lg border ${getInsightColor(insight.type)}`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="text-2xl">{getInsightIcon(insight.type)}</div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(insight.priority)}`}>
-                      {insight.priority}
-                    </span>
-                  </div>
-                  <h3 className="font-semibold mb-2">{insight.title}</h3>
-                  <p className="text-sm mb-2">{insight.description}</p>
-                  {insight.recommendation && (
-                    <p className="text-xs italic">💡 {insight.recommendation}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-            {analytics.insights.length > 6 && (
-              <div className="text-center mt-4">
-                <p className="text-gray-600">+{analytics.insights.length - 6} more insights</p>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">All Insights</h2>
+              <div className="text-sm text-gray-600">
+                {analytics.insights.length} total insights organized by category
               </div>
-            )}
+            </div>
+            
+            {/* Category Summary */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-3">Category Breakdown</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {(() => {
+                  const categories: Record<string, number> = {};
+                  analytics.insights.forEach(insight => {
+                    const category = insight.category || 'general';
+                    categories[category] = (categories[category] || 0) + 1;
+                  });
+                  
+                  return Object.entries(categories)
+                    .sort(([,a], [,b]) => b - a)
+                    .map(([category, count]) => (
+                      <div key={category} className="text-center p-3 bg-white rounded border">
+                        <div className="text-lg font-semibold text-gray-900">{count}</div>
+                        <div className="text-sm text-gray-600 capitalize">
+                          {category.replace(/_/g, ' ')}
+                        </div>
+                      </div>
+                    ));
+                })()}
+              </div>
+            </div>
+            
+            <InsightsByCategory insights={analytics.insights} />
           </div>
         )}
 

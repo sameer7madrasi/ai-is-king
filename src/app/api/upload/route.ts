@@ -48,32 +48,64 @@ export async function POST(req: NextRequest) {
       
       console.log('Text input received, length:', text.length);
       
-      // Process text using TextProcessor
+      // Process text using advanced NLP
       const result = await TextProcessor.processText(text);
       
-      const response = {
-        fileId: uuidv4(),
-        numRows: result.data.length,
-        numColumns: result.columns.length,
-        columns: result.columns,
-        columnTypes: result.columnTypes,
-        sample: result.data.slice(0, 5),
-        metadata: result.metadata,
+      // Convert NLP result to table format for display
+      const tableData = [{
+        id: result.id,
+        originalText: result.originalText,
+        metrics: JSON.stringify(result.metrics),
+        domain: result.domain,
+        sentiment: result.sentiment,
+        confidence: result.confidence,
+        insights: result.insights.join('; '),
+        recommendations: result.recommendations.join('; '),
+        timestamp: result.timestamp
+      }];
+      
+      const columns = ['id', 'originalText', 'metrics', 'domain', 'sentiment', 'confidence', 'insights', 'recommendations', 'timestamp'];
+      const columnTypes = {
+        id: 'string',
+        originalText: 'string',
+        metrics: 'string',
+        domain: 'string',
+        sentiment: 'string',
+        confidence: 'number',
+        insights: 'string',
+        recommendations: 'string',
+        timestamp: 'string'
       };
       
-      console.log('Text processing response:', response);
+      const response = {
+        fileId: result.id,
+        numRows: tableData.length,
+        numColumns: columns.length,
+        columns: columns,
+        columnTypes: columnTypes,
+        sample: tableData,
+        metadata: {
+          processingMethod: 'advanced_nlp',
+          domain: result.domain,
+          confidence: result.confidence,
+          insights: result.insights,
+          recommendations: result.recommendations
+        },
+      };
+      
+      console.log('NLP processing response:', response);
       
       // Save data to database
       try {
         await databaseService.saveFileData(
           response.fileId,
-          'text_input.txt',
+          'nlp_processed.txt',
           text.length,
-          result.data,
-          result.columns,
-          result.columnTypes
+          tableData,
+          columns,
+          columnTypes
         );
-        console.log('Text data saved to database successfully');
+        console.log('NLP data saved to database successfully');
       } catch (dbError) {
         console.error('Database save error:', dbError);
         // Continue with response even if database save fails
@@ -190,12 +222,25 @@ export async function POST(req: NextRequest) {
         parseError = `Failed to parse Excel file: ${e instanceof Error ? e.message : 'Unknown error'}`;
       }
     } else if (fileName && (fileName.endsWith('.txt') || fileName.endsWith('.text'))) {
-      console.log('Processing text file...');
+      console.log('Processing text file with NLP...');
       try {
         const result = await TextProcessor.processText(text);
-        data = result.data;
-        columns = result.columns;
-        console.log('Text processed successfully. Rows:', data.length, 'Columns:', columns.length, 'Method:', result.metadata.processingMethod);
+        
+        // Convert NLP result to table format
+        data = [{
+          id: result.id,
+          originalText: result.originalText,
+          metrics: JSON.stringify(result.metrics),
+          domain: result.domain,
+          sentiment: result.sentiment,
+          confidence: result.confidence,
+          insights: result.insights.join('; '),
+          recommendations: result.recommendations.join('; '),
+          timestamp: result.timestamp
+        }];
+        
+        columns = ['id', 'originalText', 'metrics', 'domain', 'sentiment', 'confidence', 'insights', 'recommendations', 'timestamp'];
+        console.log('Text processed successfully with NLP. Domain:', result.domain, 'Confidence:', result.confidence);
       } catch (e) {
         console.error('Text processing error:', e);
         parseError = `Failed to process text file: ${e instanceof Error ? e.message : 'Unknown error'}`;

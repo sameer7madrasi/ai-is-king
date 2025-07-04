@@ -8,6 +8,7 @@ const navigation = [
   { name: "Make An Entry", href: "/upload", icon: "📁" },
   { name: "Data History", href: "/history", icon: "📋" },
   { name: "Analytics", href: "/analytics", icon: "🤖" },
+  { name: "Test NLP", href: "/test-nlp", icon: "🧪" },
   { name: "Settings", href: "/settings", icon: "⚙️" },
 ];
 
