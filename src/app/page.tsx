@@ -50,6 +50,24 @@ export default function Dashboard() {
           </Link>
         </div>
 
+        {/* Analytics Card */}
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-8 mb-12">
+          <Link
+            href="/analytics"
+            className="group bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-lg p-8 hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-blue-200"
+          >
+            <div className="text-center">
+              <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                🤖
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">AI Analytics</h2>
+              <p className="text-gray-600">
+                Get intelligent insights and recommendations powered by AI
+              </p>
+            </div>
+          </Link>
+        </div>
+
         {/* Fun Stats Section */}
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-8 text-center">
           <h3 className="text-2xl font-bold text-gray-900 mb-4">

@@ -100,23 +100,36 @@ class DatabaseService {
 
   async getAllFiles(): Promise<FileMetadata[]> {
     const db = await this.initialize();
-    const files = await db.all('SELECT * FROM files ORDER BY uploadDate DESC');
+    console.log('Database: Getting all files...');
     
-    return files.map((file: any) => ({
+    const files = await db.all('SELECT * FROM files ORDER BY uploadDate DESC');
+    console.log('Database: Found files:', files.length);
+    
+    const result = files.map((file: any) => ({
       ...file,
       columns: JSON.parse(file.columns),
       columnTypes: JSON.parse(file.columnTypes)
     }));
+    
+    console.log('Database: Processed files:', result.map(f => ({ id: f.id, name: f.fileName, rows: f.numRows })));
+    return result;
   }
 
   async getFileData(fileId: string): Promise<DataRow[]> {
     const db = await this.initialize();
+    console.log('Database: Getting data for file:', fileId);
+    
     const rows = await db.all(
       'SELECT data FROM data_entries WHERE fileId = ? ORDER BY rowIndex',
       [fileId]
     );
     
-    return rows.map((row: any) => JSON.parse(row.data));
+    console.log('Database: Found data rows:', rows.length);
+    
+    const result = rows.map((row: any) => JSON.parse(row.data));
+    console.log('Database: First row sample:', result[0]);
+    
+    return result;
   }
 
   async getFileMetadata(fileId: string): Promise<FileMetadata | null> {

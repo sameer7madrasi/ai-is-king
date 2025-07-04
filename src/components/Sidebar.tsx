@@ -7,7 +7,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: "📊" },
   { name: "Make An Entry", href: "/upload", icon: "📁" },
   { name: "Data History", href: "/history", icon: "📋" },
-  { name: "Analytics", href: "/analytics", icon: "📈" },
+  { name: "Analytics", href: "/analytics", icon: "🤖" },
   { name: "Settings", href: "/settings", icon: "⚙️" },
 ];
 

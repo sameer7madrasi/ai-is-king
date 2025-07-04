@@ -1,25 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { DataInsight, ChartSuggestion } from "@/lib/analyticsService";
-
-interface AnalyticsData {
-  hasData: boolean;
-  summary: {
-    totalDatasets: number;
-    totalRows: number;
-    totalColumns: number;
-    analyzedDatasets: number;
-  };
-  analyses: any[];
-  topInsights: DataInsight[];
-  recommendedCharts: ChartSuggestion[];
-}
+import React, { useState, useEffect } from 'react';
+import { AnalyticsResult } from '@/lib/analyticsService';
+import { DomainInsight } from '@/lib/domainAnalyzer';
+import { CrossDatasetInsight } from '@/lib/correlationAnalyzer';
 
 export default function AnalyticsPage() {
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAnalytics();
@@ -28,14 +17,28 @@ export default function AnalyticsPage() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/analytics");
-      if (!response.ok) {
-        throw new Error("Failed to fetch analytics");
+      console.log('Fetching analytics...');
+      
+      const response = await fetch('/api/analytics');
+      console.log('Analytics response status:', response.status);
+      
+      const result = await response.json();
+      console.log('Analytics result:', result);
+      
+      if (result.success) {
+        setAnalytics(result.data);
+        console.log('Analytics data set:', {
+          totalDatasets: result.data.summary.totalDatasets,
+          totalRecords: result.data.summary.totalRecords,
+          insightsCount: result.data.insights.length
+        });
+      } else {
+        setError(result.error || 'Failed to fetch analytics');
+        console.error('Analytics error:', result.error, result.details);
       }
-      const data = await response.json();
-      setAnalyticsData(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setError('Failed to fetch analytics');
     } finally {
       setLoading(false);
     }
@@ -43,89 +46,80 @@ export default function AnalyticsPage() {
 
   const getInsightIcon = (type: string) => {
     switch (type) {
-      case 'statistical': return '📊';
-      case 'trend': return '📈';
-      case 'correlation': return '🔗';
-      case 'anomaly': return '⚠️';
-      case 'recommendation': return '💡';
-      default: return '📋';
+      case 'financial': return '💰';
+      case 'sports': return '⚽';
+      case 'health': return '🏥';
+      case 'productivity': return '📈';
+      default: return '📊';
+    }
+  };
+
+  const getInsightColor = (type: string) => {
+    switch (type) {
+      case 'financial': return 'bg-green-50 border-green-200 text-green-800';
+      case 'sports': return 'bg-blue-50 border-blue-200 text-blue-800';
+      case 'health': return 'bg-orange-50 border-orange-200 text-orange-800';
+      case 'productivity': return 'bg-purple-50 border-purple-200 text-purple-800';
+      default: return 'bg-gray-50 border-gray-200 text-gray-800';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'border-red-500 bg-red-50';
-      case 'medium': return 'border-yellow-500 bg-yellow-50';
-      case 'low': return 'border-blue-500 bg-blue-50';
-      default: return 'border-gray-500 bg-gray-50';
+      case 'high': return 'bg-red-100 text-red-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const renderChart = (chart: ChartSuggestion) => {
-    switch (chart.type) {
-      case 'bar':
-        return (
-          <div className="bg-white p-4 rounded-lg border">
-            <h4 className="font-semibold mb-2">{chart.title}</h4>
-            <div className="space-y-2">
-              {chart.data.slice(0, 5).map((item: any, index: number) => (
-                <div key={index} className="flex items-center">
-                  <div className="w-24 text-sm truncate">{item.label}</div>
-                  <div className="flex-1 ml-2">
-                    <div className="bg-blue-200 rounded h-4" style={{ width: `${(item.value / Math.max(...chart.data.map((d: any) => d.value))) * 100}%` }}></div>
-                  </div>
-                  <div className="ml-2 text-sm font-medium">{item.value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      
-      case 'histogram':
-        return (
-          <div className="bg-white p-4 rounded-lg border">
-            <h4 className="font-semibold mb-2">{chart.title}</h4>
-            <div className="space-y-2">
-              {chart.data.slice(0, 5).map((item: any, index: number) => (
-                <div key={index} className="flex items-center">
-                  <div className="w-32 text-xs truncate">{item.bin}</div>
-                  <div className="flex-1 ml-2">
-                    <div className="bg-green-200 rounded h-4" style={{ width: `${(item.count / Math.max(...chart.data.map((d: any) => d.count))) * 100}%` }}></div>
-                  </div>
-                  <div className="ml-2 text-sm font-medium">{item.count}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      
-      case 'scatter':
-        return (
-          <div className="bg-white p-4 rounded-lg border">
-            <h4 className="font-semibold mb-2">{chart.title}</h4>
-            <div className="text-sm text-gray-600">
-              {chart.data.length} data points
-              <br />
-              X: {chart.xAxis}, Y: {chart.yAxis}
-            </div>
-          </div>
-        );
-      
-      default:
-        return (
-          <div className="bg-white p-4 rounded-lg border">
-            <h4 className="font-semibold mb-2">{chart.title}</h4>
-            <div className="text-sm text-gray-600">{chart.description}</div>
-          </div>
-        );
+  const getAIInsightIcon = (type: string) => {
+    switch (type) {
+      case 'trend': return '📈';
+      case 'anomaly': return '⚠️';
+      case 'correlation': return '🔗';
+      case 'recommendation': return '💡';
+      case 'prediction': return '🔮';
+      case 'pattern': return '🔍';
+      default: return '📊';
+    }
+  };
+
+  const getAIInsightColor = (type: string) => {
+    switch (type) {
+      case 'trend': return 'bg-blue-50 border-blue-200 text-blue-800';
+      case 'anomaly': return 'bg-red-50 border-red-200 text-red-800';
+      case 'correlation': return 'bg-purple-50 border-purple-200 text-purple-800';
+      case 'recommendation': return 'bg-green-50 border-green-200 text-green-800';
+      case 'prediction': return 'bg-orange-50 border-orange-200 text-orange-800';
+      case 'pattern': return 'bg-indigo-50 border-indigo-200 text-indigo-800';
+      default: return 'bg-gray-50 border-gray-200 text-gray-800';
+    }
+  };
+
+  const getImpactColor = (impact: string) => {
+    switch (impact) {
+      case 'positive': return 'text-green-600';
+      case 'negative': return 'text-red-600';
+      case 'neutral': return 'text-gray-600';
+      default: return 'text-gray-600';
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        <span className="ml-4 text-lg">Analyzing your data...</span>
+      <div className="p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+            <div className="h-64 bg-gray-200 rounded"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -133,28 +127,29 @@ export default function AnalyticsPage() {
   if (error) {
     return (
       <div className="p-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h3 className="text-red-800 font-medium">Error</h3>
-          <p className="text-red-700">{error}</p>
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <p className="text-red-800 mb-4">{error}</p>
+            <button
+              onClick={fetchAnalytics}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!analyticsData || !analyticsData.hasData) {
+  if (!analytics) {
     return (
       <div className="p-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Analytics Dashboard</h1>
-          <p className="text-lg text-gray-600 mb-8">
-            No data available for analysis. Upload some data to see insights and visualizations.
-          </p>
-          <button
-            onClick={() => window.location.href = '/upload'}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-          >
-            Make Your First Entry
-          </button>
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Analytics Dashboard</h1>
+            <p className="text-gray-600 mb-8">No data available for analysis</p>
+          </div>
         </div>
       </div>
     );
@@ -162,157 +157,270 @@ export default function AnalyticsPage() {
 
   return (
     <div className="p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
-        <p className="text-lg text-gray-600">
-          AI-powered insights from your personal data
-        </p>
-      </div>
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Analytics Dashboard</h1>
+            <p className="text-gray-600">
+              AI-powered insights from your data • Last updated: {analytics.summary.lastUpdated.toLocaleString()}
+            </p>
+          </div>
+          <button
+            onClick={fetchAnalytics}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            🔄 Refresh
+          </button>
+        </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <div className="text-3xl mr-4">📊</div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{analyticsData.summary.totalDatasets}</div>
-              <div className="text-sm text-gray-600">Total Datasets</div>
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="text-3xl mr-4">📊</div>
+              <div>
+                <p className="text-sm text-gray-600">Total Datasets</p>
+                <p className="text-2xl font-bold text-gray-900">{analytics.summary.totalDatasets}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="text-3xl mr-4">📝</div>
+              <div>
+                <p className="text-sm text-gray-600">Total Records</p>
+                <p className="text-2xl font-bold text-gray-900">{analytics.summary.totalRecords}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="text-3xl mr-4">🔍</div>
+              <div>
+                <p className="text-sm text-gray-600">Insights Found</p>
+                <p className="text-2xl font-bold text-gray-900">{analytics.insights.length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="text-3xl mr-4">🔗</div>
+              <div>
+                <p className="text-sm text-gray-600">Correlations</p>
+                <p className="text-2xl font-bold text-gray-900">{analytics.crossDatasetInsights.length}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="text-3xl mr-4">🤖</div>
+              <div>
+                <p className="text-sm text-gray-600">AI Insights</p>
+                <p className="text-2xl font-bold text-gray-900">{analytics.aiInsights.length}</p>
+              </div>
             </div>
           </div>
         </div>
-        
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <div className="text-3xl mr-4">📈</div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{analyticsData.summary.totalRows.toLocaleString()}</div>
-              <div className="text-sm text-gray-600">Total Rows</div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <div className="text-3xl mr-4">🔍</div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{analyticsData.summary.totalColumns}</div>
-              <div className="text-sm text-gray-600">Total Columns</div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <div className="text-3xl mr-4">💡</div>
-            <div>
-              <div className="text-2xl font-bold text-gray-900">{analyticsData.topInsights.length}</div>
-              <div className="text-sm text-gray-600">Key Insights</div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Top Insights */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Key Insights</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {analyticsData.topInsights.map((insight, index) => (
-            <div
-              key={index}
-              className={`border-l-4 p-4 rounded-r-lg ${getPriorityColor(insight.priority)}`}
-            >
-              <div className="flex items-start">
-                <div className="text-2xl mr-3">{getInsightIcon(insight.type)}</div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1">{insight.title}</h3>
-                  <p className="text-sm text-gray-700 mb-2">{insight.description}</p>
-                  {insight.confidence && (
-                    <div className="text-xs text-gray-500">
-                      Confidence: {(insight.confidence * 100).toFixed(0)}%
-                    </div>
+        {/* Domain Distribution */}
+        {Object.keys(analytics.summary.domains).length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Data Domains</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(analytics.summary.domains).map(([domain, count]) => (
+                <div key={domain} className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl mb-2">{getInsightIcon(domain)}</div>
+                  <p className="font-semibold text-gray-900 capitalize">{domain}</p>
+                  <p className="text-sm text-gray-600">{count} dataset{count !== 1 ? 's' : ''}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Key Insights */}
+        {analytics.insights.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Key Insights</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {analytics.insights.slice(0, 6).map((insight, index) => (
+                <div
+                  key={index}
+                  className={`p-4 rounded-lg border ${getInsightColor(insight.type)}`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="text-2xl">{getInsightIcon(insight.type)}</div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(insight.priority)}`}>
+                      {insight.priority}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold mb-2">{insight.title}</h3>
+                  <p className="text-sm mb-2">{insight.description}</p>
+                  {insight.recommendation && (
+                    <p className="text-xs italic">💡 {insight.recommendation}</p>
                   )}
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Recommended Charts */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Recommended Visualizations</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {analyticsData.recommendedCharts.map((chart, index) => (
-            <div key={index}>
-              {renderChart(chart)}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Dataset Analysis */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Dataset Analysis</h2>
-        <div className="space-y-4">
-          {analyticsData.analyses.map((analysis, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{analysis.fileName}</h3>
-                  <p className="text-sm text-gray-600">
-                    {analysis.rowCount} rows × {analysis.columnCount} columns
-                  </p>
-                </div>
-                <div className="text-sm text-gray-500">
-                  {new Date(analysis.uploadDate).toLocaleDateString()}
-                </div>
+            {analytics.insights.length > 6 && (
+              <div className="text-center mt-4">
+                <p className="text-gray-600">+{analytics.insights.length - 6} more insights</p>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-blue-600">{analysis.summary.numericColumns.length}</div>
-                  <div className="text-xs text-gray-600">Numeric</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-green-600">{analysis.summary.categoricalColumns.length}</div>
-                  <div className="text-xs text-gray-600">Categorical</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-purple-600">{analysis.summary.dateColumns.length}</div>
-                  <div className="text-xs text-gray-600">Date</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-orange-600">{analysis.summary.textColumns.length}</div>
-                  <div className="text-xs text-gray-600">Text</div>
-                </div>
+            )}
+          </div>
+        )}
+
+        {/* AI Insights */}
+        {analytics.aiInsights.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">🤖 AI-Powered Insights</h2>
+            {analytics.aiSummary && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                <p className="text-gray-800 leading-relaxed">{analytics.aiSummary}</p>
               </div>
-              
-              {analysis.insights.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Insights</h4>
-                  <div className="space-y-2">
-                                         {analysis.insights.slice(0, 3).map((insight: DataInsight, insightIndex: number) => (
-                       <div key={insightIndex} className="text-sm text-gray-700">
-                         • {insight.description}
-                       </div>
-                     ))}
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {analytics.aiInsights.slice(0, 8).map((insight, index) => (
+                <div
+                  key={insight.id}
+                  className={`p-4 rounded-lg border ${getAIInsightColor(insight.type)}`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="text-2xl">{getAIInsightIcon(insight.type)}</div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(insight.priority)}`}>
+                        {insight.priority}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {(insight.confidence * 100).toFixed(0)}%
+                      </span>
+                    </div>
                   </div>
+                  <h3 className="font-semibold mb-2">{insight.title}</h3>
+                  <p className="text-sm mb-2">{insight.description}</p>
+                  <p className="text-xs mb-3 text-gray-600">{insight.explanation}</p>
+                  {insight.actionItems && insight.actionItems.length > 0 && (
+                    <div className="text-xs">
+                      <p className="font-medium mb-1">Action Items:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        {insight.actionItems.map((action, i) => (
+                          <li key={i}>{action}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {insight.timeframe && (
+                    <p className="text-xs mt-2">
+                      <span className="font-medium">Timeframe:</span> {insight.timeframe}
+                    </p>
+                  )}
+                  {insight.impact && (
+                    <p className={`text-xs mt-1 ${getImpactColor(insight.impact)}`}>
+                      <span className="font-medium">Impact:</span> {insight.impact}
+                    </p>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+            {analytics.aiInsights.length > 8 && (
+              <div className="text-center mt-4">
+                <p className="text-gray-600">+{analytics.aiInsights.length - 8} more AI insights</p>
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* Refresh Button */}
-      <div className="text-center">
-        <button
-          onClick={fetchAnalytics}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors"
-        >
-          Refresh Analytics
-        </button>
+        {/* Cross-Dataset Insights */}
+        {analytics.crossDatasetInsights.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Dataset Correlations</h2>
+            <div className="space-y-4">
+              {analytics.crossDatasetInsights.map((insight, index) => (
+                <div key={index} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="text-2xl">🔗</div>
+                    <span className="text-sm text-blue-600 font-medium">
+                      {(insight.correlation * 100).toFixed(0)}% correlation
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-blue-900 mb-2">
+                    {insight.datasets.join(' ↔ ')}
+                  </h3>
+                  <p className="text-blue-800 mb-2">{insight.insight}</p>
+                  <p className="text-sm text-blue-700 italic">💡 {insight.recommendation}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recommendations */}
+        {analytics.recommendations.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Recommendations</h2>
+            <div className="space-y-3">
+              {analytics.recommendations.map((recommendation, index) => (
+                <div key={index} className="flex items-start p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="text-yellow-600 mr-3 mt-1">💡</div>
+                  <p className="text-yellow-800">{recommendation}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Chart Suggestions */}
+        {analytics.charts.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Recommended Visualizations</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {analytics.charts.slice(0, 6).map((chart, index) => (
+                <div key={index} className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-2xl">
+                      {chart.type === 'line' ? '📈' : 
+                       chart.type === 'bar' ? '📊' : 
+                       chart.type === 'pie' ? '🥧' : 
+                       chart.type === 'scatter' ? '🔍' : '📋'}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(chart.priority)}`}>
+                      {chart.priority}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold mb-1">{chart.title}</h3>
+                  <p className="text-sm text-gray-600">{chart.description}</p>
+                </div>
+              ))}
+            </div>
+            {analytics.charts.length > 6 && (
+              <div className="text-center mt-4">
+                <p className="text-gray-600">+{analytics.charts.length - 6} more charts</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {analytics.summary.totalDatasets === 0 && (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📊</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Data to Analyze</h2>
+            <p className="text-gray-600 mb-6">
+              Upload some data to start getting AI-powered insights and visualizations
+            </p>
+            <a
+              href="/upload"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Upload Data
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

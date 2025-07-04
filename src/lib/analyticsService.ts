@@ -1,404 +1,387 @@
-export interface DataInsight {
-  type: 'statistical' | 'trend' | 'correlation' | 'anomaly' | 'recommendation';
-  title: string;
-  description: string;
-  value?: any;
-  confidence?: number;
-  priority: 'high' | 'medium' | 'low';
+import { DomainAnalyzer, DomainInsight, DataDomain } from './domainAnalyzer';
+import { CorrelationAnalyzer, DatasetMetadata, CrossDatasetInsight } from './correlationAnalyzer';
+import { AIAnalyticsService, AIInsight, AIDataAnalysis } from './aiAnalyticsService';
+
+export interface AnalyticsResult {
+  summary: {
+    totalDatasets: number;
+    totalRecords: number;
+    domains: Record<string, number>;
+    lastUpdated: Date;
+  };
+  insights: DomainInsight[];
+  crossDatasetInsights: CrossDatasetInsight[];
+  recommendations: string[];
+  charts: ChartSuggestion[];
+  // AI-powered insights
+  aiInsights: AIInsight[];
+  aiAnalysis: AIDataAnalysis | null;
+  aiSummary: string;
 }
 
 export interface ChartSuggestion {
-  type: 'bar' | 'line' | 'scatter' | 'histogram' | 'pie' | 'heatmap';
+  type: 'line' | 'bar' | 'pie' | 'scatter' | 'area';
   title: string;
   description: string;
   data: any;
-  xAxis?: string;
-  yAxis?: string;
-  category?: string;
-}
-
-export interface DatasetAnalysis {
-  fileId: string;
-  fileName: string;
-  uploadDate: string;
-  rowCount: number;
-  columnCount: number;
-  insights: DataInsight[];
-  chartSuggestions: ChartSuggestion[];
-  summary: {
-    numericColumns: string[];
-    categoricalColumns: string[];
-    dateColumns: string[];
-    textColumns: string[];
-  };
-}
-
-export interface GlobalAnalytics {
-  totalDatasets: number;
-  totalRows: number;
-  totalColumns: number;
-  dataTypes: Record<string, number>;
-  timeSpan: {
-    earliest: string;
-    latest: string;
-    days: number;
-  };
-  topInsights: DataInsight[];
-  recommendedCharts: ChartSuggestion[];
-  trends: {
-    uploadFrequency: number;
-    dataGrowth: number;
-    mostCommonTypes: string[];
-  };
+  priority: 'high' | 'medium' | 'low';
 }
 
 export class AnalyticsService {
   /**
-   * Analyze a single dataset and generate insights
+   * Analyze all datasets and generate comprehensive insights
    */
-  static analyzeDataset(data: any[], columns: string[], columnTypes: Record<string, string>): DatasetAnalysis {
-    const insights: DataInsight[] = [];
-    const chartSuggestions: ChartSuggestion[] = [];
-    
-    // Categorize columns
-    const numericColumns = columns.filter(col => columnTypes[col] === 'number');
-    const categoricalColumns = columns.filter(col => columnTypes[col] === 'string' && this.isCategorical(data, col));
-    const dateColumns = columns.filter(col => this.isDateColumn(data, col));
-    const textColumns = columns.filter(col => columnTypes[col] === 'string' && !this.isCategorical(data, col));
+  static async analyzeAllData(): Promise<AnalyticsResult> {
+    try {
+      console.log('Analytics: Starting analysis...');
+      // Get all datasets from database
+      const datasets = await this.getAllDatasets();
+      console.log('Analytics: Retrieved datasets:', datasets.length, datasets.map(d => d.name));
+      if (datasets.length === 0) {
+        console.log('Analytics: No datasets found, returning empty result');
+        return this.getEmptyResult();
+      }
+      // Detect domains and generate insights for each dataset
+      const allInsights: DomainInsight[] = [];
+      const datasetMetadata: DatasetMetadata[] = [];
+      for (const dataset of datasets) {
+        console.log('Analytics: Processing dataset:', dataset.name, 'Rows:', dataset.data.length);
+        const domain = DomainAnalyzer.detectDomain(
+          dataset.data, 
+          dataset.columns, 
+          dataset.columnTypes
+        );
+        const insights = DomainAnalyzer.generateDomainInsights(
+          dataset.data,
+          dataset.columns,
+          dataset.columnTypes,
+          domain
+        );
+        allInsights.push(...insights);
+        datasetMetadata.push({
+          id: dataset.id,
+          name: dataset.name,
+          domain: domain.type,
+          columns: dataset.columns,
+          columnTypes: dataset.columnTypes,
+          data: dataset.data,
+          createdAt: new Date(dataset.createdAt)
+        });
+      }
+      // Find correlations between datasets
+      const correlations = CorrelationAnalyzer.findCorrelations(datasetMetadata);
+      // Generate cross-dataset insights
+      const crossDatasetInsights = CorrelationAnalyzer.generateCrossDatasetInsights(
+        datasetMetadata,
+        correlations
+      );
+      // Generate recommendations
+      const recommendations = this.generateRecommendations(allInsights, crossDatasetInsights);
+      // Generate chart suggestions
+      const charts = this.generateChartSuggestions(allInsights, datasetMetadata);
+      // Generate AI-powered insights
+      const aiAnalysis = await this.generateAIAnalysis(datasetMetadata);
+      // Defensive: ensure aiAnalysis is an object with arrays, or fallback to []
+      const aiInsights = aiAnalysis && Array.isArray(aiAnalysis.keyInsights)
+        ? [
+            ...(aiAnalysis.keyInsights || []),
+            ...(aiAnalysis.recommendations || []),
+            ...(aiAnalysis.crossDatasetInsights || [])
+          ]
+        : [];
+      return {
+        summary: {
+          totalDatasets: datasets.length,
+          totalRecords: datasets.reduce((sum, d) => sum + d.data.length, 0),
+          domains: this.countDomains(datasetMetadata),
+          lastUpdated: new Date()
+        },
+        insights: allInsights.sort((a, b) => {
+          // Sort by priority first, then by confidence
+          const priorityOrder = { high: 3, medium: 2, low: 1 };
+          const aScore = priorityOrder[a.priority] * a.confidence;
+          const bScore = priorityOrder[b.priority] * b.confidence;
+          return bScore - aScore;
+        }),
+        crossDatasetInsights,
+        recommendations,
+        charts,
+        aiInsights,
+        aiAnalysis: aiAnalysis || null,
+        aiSummary: aiAnalysis?.summary || "No AI analysis available"
+      };
+    } catch (error) {
+      console.error('Error analyzing data:', error);
+      return this.getEmptyResult();
+    }
+  }
 
-    // Generate statistical insights
-    insights.push(...this.generateStatisticalInsights(data, columns, columnTypes));
+  /**
+   * Get all datasets from database
+   */
+  private static async getAllDatasets(): Promise<any[]> {
+    try {
+      console.log('Analytics: Importing database service...');
+      const { databaseService } = await import('./database');
+      console.log('Analytics: Database service imported successfully');
+      
+      // Get all files from the database
+      console.log('Analytics: Calling getAllFiles...');
+      const files = await databaseService.getAllFiles();
+      console.log('Analytics: getAllFiles returned:', files.length, 'files', files.map(f => f.fileName));
+      const datasets = [];
+      
+      // For each file, get its data and create a dataset object
+      for (const file of files) {
+        try {
+          console.log(`Analytics: Processing file ${file.id} - ${file.fileName}`);
+          const data = await databaseService.getFileData(file.id);
+          console.log(`Analytics: Got ${data.length} rows for file ${file.id}`);
+          
+          if (data && data.length > 0) {
+            datasets.push({
+              id: file.id,
+              name: file.fileName,
+              data: data,
+              columns: file.columns,
+              columnTypes: file.columnTypes,
+              createdAt: file.uploadDate
+            });
+            console.log(`Analytics: Added dataset for ${file.fileName}`);
+          } else {
+            console.log(`Analytics: Skipped file ${file.fileName} (no data)`);
+          }
+        } catch (error) {
+          console.error(`Error getting data for file ${file.id}:`, error);
+        }
+      }
+      
+      console.log(`Analytics: Total datasets processed: ${datasets.length}`);
+      
+      return datasets;
+    } catch (error) {
+      console.error('Error fetching datasets:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Count datasets by domain
+   */
+  private static countDomains(datasets: DatasetMetadata[]): Record<string, number> {
+    const counts: Record<string, number> = {};
     
-    // Generate trend insights
-    insights.push(...this.generateTrendInsights(data, columns, columnTypes));
+    datasets.forEach(dataset => {
+      counts[dataset.domain] = (counts[dataset.domain] || 0) + 1;
+    });
     
-    // Generate correlation insights
-    if (numericColumns.length >= 2) {
-      insights.push(...this.generateCorrelationInsights(data, numericColumns));
+    return counts;
+  }
+
+  /**
+   * Generate recommendations based on insights
+   */
+  private static generateRecommendations(
+    insights: DomainInsight[], 
+    crossDatasetInsights: CrossDatasetInsight[]
+  ): string[] {
+    const recommendations: string[] = [];
+    
+    // High priority insights get recommendations
+    insights
+      .filter(insight => insight.priority === 'high' && insight.recommendation)
+      .forEach(insight => {
+        recommendations.push(insight.recommendation!);
+      });
+    
+    // Cross-dataset insights get recommendations
+    crossDatasetInsights
+      .filter(insight => insight.correlation > 0.5)
+      .forEach(insight => {
+        recommendations.push(insight.recommendation);
+      });
+    
+    // Add general recommendations based on data patterns
+    const financialInsights = insights.filter(i => i.type === 'financial');
+    const sportsInsights = insights.filter(i => i.type === 'sports');
+    const healthInsights = insights.filter(i => i.type === 'health');
+    
+    if (financialInsights.length > 0) {
+      recommendations.push("Consider setting up automated tracking for your financial data to get more consistent insights.");
     }
     
-    // Generate anomaly insights
-    insights.push(...this.generateAnomalyInsights(data, columns, columnTypes));
+    if (sportsInsights.length > 0) {
+      recommendations.push("Track your performance metrics regularly to identify improvement patterns.");
+    }
     
-    // Generate chart suggestions
-    chartSuggestions.push(...this.generateChartSuggestions(data, columns, columnTypes));
+    if (healthInsights.length > 0) {
+      recommendations.push("Monitor your health trends over time to maintain optimal wellness.");
+    }
+    
+    return [...new Set(recommendations)].slice(0, 5); // Remove duplicates and limit to 5
+  }
 
-    return {
-      fileId: 'temp',
-      fileName: 'Dataset',
-      uploadDate: new Date().toISOString(),
-      rowCount: data.length,
-      columnCount: columns.length,
-      insights,
-      chartSuggestions,
-      summary: {
-        numericColumns,
-        categoricalColumns,
-        dateColumns,
-        textColumns
+  /**
+   * Generate chart suggestions based on insights
+   */
+  private static generateChartSuggestions(
+    insights: DomainInsight[], 
+    datasets: DatasetMetadata[]
+  ): ChartSuggestion[] {
+    const charts: ChartSuggestion[] = [];
+    
+    // Generate charts for each dataset
+    datasets.forEach(dataset => {
+      const datasetInsights = insights.filter(insight => 
+        insight.value && insight.value.timeSeriesData
+      );
+      
+      datasetInsights.forEach(insight => {
+        if (insight.value.timeSeriesData && insight.value.timeSeriesData.length > 0) {
+          charts.push({
+            type: 'line',
+            title: `${insight.title} Over Time`,
+            description: `Track ${insight.title.toLowerCase()} trends`,
+            data: {
+              labels: insight.value.timeSeriesData.map((item: any) => 
+                item.date.toLocaleDateString()
+              ),
+              datasets: [{
+                label: insight.title,
+                data: insight.value.timeSeriesData.map((item: any) => item.value),
+                borderColor: this.getChartColor(insight.type),
+                backgroundColor: this.getChartColor(insight.type, 0.1)
+              }]
+            },
+            priority: insight.priority
+          });
+        }
+      });
+      
+      // Generate summary charts for financial data
+      if (dataset.domain === 'financial') {
+        const moneyColumns = dataset.columns.filter(col => 
+          DomainAnalyzer['isMoneyColumn'](col, dataset.data)
+        );
+        
+        if (moneyColumns.length > 0) {
+          const totalValues = moneyColumns.map(col => {
+            const values = dataset.data.map(row => row[col]).filter(v => v !== null && !isNaN(v));
+            return values.reduce((sum, val) => sum + val, 0);
+          });
+          
+          charts.push({
+            type: 'pie',
+            title: 'Financial Breakdown',
+            description: 'Distribution of your financial data',
+            data: {
+              labels: moneyColumns,
+              datasets: [{
+                data: totalValues,
+                backgroundColor: moneyColumns.map((_, i) => this.getChartColor('financial', 0.8, i))
+              }]
+            },
+            priority: 'medium'
+          });
+        }
       }
+      
+      // Generate performance charts for sports data
+      if (dataset.domain === 'sports') {
+        const performanceColumns = dataset.columns.filter(col => 
+          DomainAnalyzer['isSportsPerformanceColumn'](col)
+        );
+        
+        if (performanceColumns.length > 0) {
+          const totalValues = performanceColumns.map(col => {
+            const values = dataset.data.map(row => row[col]).filter(v => v !== null && !isNaN(v));
+            return values.reduce((sum, val) => sum + val, 0);
+          });
+          
+          charts.push({
+            type: 'bar',
+            title: 'Sports Performance Summary',
+            description: 'Total performance metrics',
+            data: {
+              labels: performanceColumns,
+              datasets: [{
+                label: 'Total',
+                data: totalValues,
+                backgroundColor: performanceColumns.map((_, i) => this.getChartColor('sports', 0.8, i))
+              }]
+            },
+            priority: 'medium'
+          });
+        }
+      }
+    });
+    
+    return charts.sort((a, b) => {
+      const priorityOrder = { high: 3, medium: 2, low: 1 };
+      return priorityOrder[b.priority] - priorityOrder[a.priority];
+    }).slice(0, 10); // Limit to 10 charts
+  }
+
+  /**
+   * Get chart colors based on insight type
+   */
+  private static getChartColor(type: string, alpha: number = 1, index: number = 0): string {
+    const colors = {
+      financial: ['#10B981', '#059669', '#047857', '#065F46'],
+      sports: ['#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF'],
+      health: ['#F59E0B', '#D97706', '#B45309', '#92400E'],
+      productivity: ['#8B5CF6', '#7C3AED', '#6D28D9', '#5B21B6'],
+      general: ['#6B7280', '#4B5563', '#374151', '#1F2937']
     };
-  }
-
-  /**
-   * Generate statistical insights
-   */
-  private static generateStatisticalInsights(data: any[], columns: string[], columnTypes: Record<string, string>): DataInsight[] {
-    const insights: DataInsight[] = [];
     
-    // Analyze numeric columns
-    columns.forEach(col => {
-      if (columnTypes[col] === 'number') {
-        const values = data.map(row => row[col]).filter(v => v !== null && v !== undefined && !isNaN(v));
-        if (values.length > 0) {
-          const mean = values.reduce((a, b) => a + b, 0) / values.length;
-          const sorted = values.sort((a, b) => a - b);
-          const median = sorted[Math.floor(sorted.length / 2)];
-          const min = Math.min(...values);
-          const max = Math.max(...values);
-          const std = Math.sqrt(values.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / values.length);
-
-          insights.push({
-            type: 'statistical',
-            title: `${col} Statistics`,
-            description: `Mean: ${mean.toFixed(2)}, Median: ${median.toFixed(2)}, Range: ${min.toFixed(2)} - ${max.toFixed(2)}`,
-            value: { mean, median, min, max, std },
-            confidence: 0.9,
-            priority: 'medium'
-          });
-
-          // Check for outliers
-          const q1 = sorted[Math.floor(sorted.length * 0.25)];
-          const q3 = sorted[Math.floor(sorted.length * 0.75)];
-          const iqr = q3 - q1;
-          const outliers = values.filter(v => v < q1 - 1.5 * iqr || v > q3 + 1.5 * iqr);
-          
-          if (outliers.length > 0) {
-            insights.push({
-              type: 'anomaly',
-              title: `Outliers in ${col}`,
-              description: `Found ${outliers.length} outliers (${(outliers.length / values.length * 100).toFixed(1)}% of data)`,
-              value: outliers,
-              confidence: 0.8,
-              priority: 'high'
-            });
-          }
-        }
-      }
-    });
-
-    // Analyze categorical columns
-    columns.forEach(col => {
-      if (columnTypes[col] === 'string') {
-        const values = data.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
-        if (values.length > 0) {
-          const uniqueValues = new Set(values);
-                     const valueCounts = values.reduce((acc, val) => {
-             acc[val as string] = (acc[val as string] || 0) + 1;
-             return acc;
-           }, {} as Record<string, number>);
-
-          insights.push({
-            type: 'statistical',
-            title: `${col} Distribution`,
-            description: `${uniqueValues.size} unique values, most common: ${Object.entries(valueCounts).sort((a, b) => (b[1] as number) - (a[1] as number))[0]?.[0] || 'N/A'}`,
-            value: { uniqueCount: uniqueValues.size, valueCounts },
-            confidence: 0.8,
-            priority: 'medium'
-          });
-        }
-      }
-    });
-
-    return insights;
-  }
-
-  /**
-   * Generate trend insights
-   */
-  private static generateTrendInsights(data: any[], columns: string[], columnTypes: Record<string, string>): DataInsight[] {
-    const insights: DataInsight[] = [];
+    const colorSet = colors[type as keyof typeof colors] || colors.general;
+    const color = colorSet[index % colorSet.length];
     
-    // Look for time-based trends
-    const dateColumns = columns.filter(col => this.isDateColumn(data, col));
-    dateColumns.forEach(dateCol => {
-      const numericCols = columns.filter(col => columnTypes[col] === 'number');
-      
-      numericCols.forEach(numCol => {
-        const timeSeriesData = data
-          .map(row => ({ date: new Date(row[dateCol]), value: row[numCol] }))
-          .filter(item => !isNaN(item.date.getTime()) && item.value !== null && !isNaN(item.value))
-          .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-        if (timeSeriesData.length >= 3) {
-          const values = timeSeriesData.map(item => item.value);
-          const trend = this.calculateTrend(values);
-          
-          if (Math.abs(trend) > 0.1) {
-            insights.push({
-              type: 'trend',
-              title: `${numCol} Trend Over Time`,
-              description: `${trend > 0 ? 'Increasing' : 'Decreasing'} trend in ${numCol} over time (slope: ${trend.toFixed(3)})`,
-              value: { trend, timeSeriesData },
-              confidence: 0.7,
-              priority: 'high'
-            });
-          }
-        }
-      });
-    });
-
-    return insights;
-  }
-
-  /**
-   * Generate correlation insights
-   */
-  private static generateCorrelationInsights(data: any[], numericColumns: string[]): DataInsight[] {
-    const insights: DataInsight[] = [];
-    
-    for (let i = 0; i < numericColumns.length; i++) {
-      for (let j = i + 1; j < numericColumns.length; j++) {
-        const col1 = numericColumns[i];
-        const col2 = numericColumns[j];
-        
-        const values1 = data.map(row => row[col1]).filter(v => v !== null && !isNaN(v));
-        const values2 = data.map(row => row[col2]).filter(v => v !== null && !isNaN(v));
-        
-        if (values1.length === values2.length && values1.length > 1) {
-          const correlation = this.calculateCorrelation(values1, values2);
-          
-          if (Math.abs(correlation) > 0.5) {
-            insights.push({
-              type: 'correlation',
-              title: `${col1} vs ${col2} Correlation`,
-              description: `${Math.abs(correlation) > 0.7 ? 'Strong' : 'Moderate'} ${correlation > 0 ? 'positive' : 'negative'} correlation (${correlation.toFixed(3)})`,
-              value: { correlation, col1, col2 },
-              confidence: 0.8,
-              priority: 'high'
-            });
-          }
-        }
-      }
+    if (alpha < 1) {
+      return color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
     }
-
-    return insights;
+    
+    return color;
   }
 
   /**
-   * Generate anomaly insights
+   * Get empty result when no data is available
    */
-  private static generateAnomalyInsights(data: any[], columns: string[], columnTypes: Record<string, string>): DataInsight[] {
-    const insights: DataInsight[] = [];
-    
-    // Look for missing data patterns
-    columns.forEach(col => {
-      const missingCount = data.filter(row => row[col] === null || row[col] === undefined || row[col] === '').length;
-      const missingPercentage = (missingCount / data.length) * 100;
+  /**
+   * Generate AI-powered analysis for datasets
+   */
+  private static async generateAIAnalysis(datasets: DatasetMetadata[]): Promise<any> {
+    try {
+      if (datasets.length === 0) return null;
       
-      if (missingPercentage > 10) {
-        insights.push({
-          type: 'anomaly',
-          title: `Missing Data in ${col}`,
-          description: `${missingPercentage.toFixed(1)}% of values are missing in ${col}`,
-          value: { missingCount, missingPercentage },
-          confidence: 0.9,
-          priority: 'medium'
-        });
-      }
-    });
-
-    return insights;
-  }
-
-  /**
-   * Generate chart suggestions
-   */
-  private static generateChartSuggestions(data: any[], columns: string[], columnTypes: Record<string, string>): ChartSuggestion[] {
-    const suggestions: ChartSuggestion[] = [];
-    
-    // Bar chart for categorical data
-    const categoricalColumns = columns.filter(col => columnTypes[col] === 'string' && this.isCategorical(data, col));
-    categoricalColumns.forEach(col => {
-               const valueCounts = data.reduce((acc, row) => {
-           const value = row[col];
-           if (value !== null && value !== undefined && value !== '') {
-             acc[value as string] = (acc[value as string] || 0) + 1;
-           }
-           return acc;
-         }, {} as Record<string, number>);
-
-      const sortedData = Object.entries(valueCounts)
-        .sort((a, b) => (b[1] as number) - (a[1] as number))
-        .slice(0, 10); // Top 10 categories
-
-      suggestions.push({
-        type: 'bar',
-        title: `${col} Distribution`,
-        description: `Distribution of values in ${col}`,
-        data: sortedData.map(([label, value]) => ({ label, value })),
-        xAxis: col,
-        yAxis: 'Count'
-      });
-    });
-
-    // Histogram for numeric data
-    const numericColumns = columns.filter(col => columnTypes[col] === 'number');
-    numericColumns.forEach(col => {
-      const values = data.map(row => row[col]).filter(v => v !== null && !isNaN(v));
-      if (values.length > 0) {
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        const binCount = Math.min(10, Math.ceil(Math.sqrt(values.length)));
-        const binSize = (max - min) / binCount;
-        
-        const bins = Array(binCount).fill(0);
-        values.forEach(value => {
-          const binIndex = Math.min(Math.floor((value - min) / binSize), binCount - 1);
-          bins[binIndex]++;
-        });
-
-        suggestions.push({
-          type: 'histogram',
-          title: `${col} Distribution`,
-          description: `Frequency distribution of ${col}`,
-          data: bins.map((count, i) => ({
-            bin: `${(min + i * binSize).toFixed(2)} - ${(min + (i + 1) * binSize).toFixed(2)}`,
-            count
-          })),
-          xAxis: col,
-          yAxis: 'Frequency'
-        });
-      }
-    });
-
-    // Scatter plot for correlations
-    if (numericColumns.length >= 2) {
-      for (let i = 0; i < numericColumns.length; i++) {
-        for (let j = i + 1; j < numericColumns.length; j++) {
-          const col1 = numericColumns[i];
-          const col2 = numericColumns[j];
-          
-          const scatterData = data
-            .map(row => ({ x: row[col1], y: row[col2] }))
-            .filter(point => point.x !== null && point.y !== null && !isNaN(point.x) && !isNaN(point.y));
-
-          if (scatterData.length > 0) {
-            suggestions.push({
-              type: 'scatter',
-              title: `${col1} vs ${col2}`,
-              description: `Relationship between ${col1} and ${col2}`,
-              data: scatterData,
-              xAxis: col1,
-              yAxis: col2
-            });
-          }
-        }
-      }
+      // Use AI analytics service to analyze all datasets
+      const aiAnalysis = await AIAnalyticsService.analyzeMultipleDatasetsWithAI(datasets);
+      return aiAnalysis;
+    } catch (error) {
+      console.error('Error generating AI analysis:', error);
+      return null;
     }
-
-    return suggestions;
   }
 
-  /**
-   * Helper methods
-   */
-  private static isCategorical(data: any[], column: string): boolean {
-    const values = data.map(row => row[column]).filter(v => v !== null && v !== undefined && v !== '');
-    const uniqueValues = new Set(values);
-    return uniqueValues.size <= Math.min(20, values.length * 0.5); // Max 20 unique values or 50% of data
-  }
-
-  private static isDateColumn(data: any[], column: string): boolean {
-    const sampleValues = data.slice(0, 10).map(row => row[column]).filter(v => v !== null && v !== undefined);
-    return sampleValues.some(value => {
-      const date = new Date(value);
-      return !isNaN(date.getTime());
-    });
-  }
-
-  private static calculateTrend(values: number[]): number {
-    const n = values.length;
-    const x = Array.from({ length: n }, (_, i) => i);
-    const sumX = x.reduce((a, b) => a + b, 0);
-    const sumY = values.reduce((a, b) => a + b, 0);
-    const sumXY = x.reduce((sum, xi, i) => sum + xi * values[i], 0);
-    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
-    
-    return (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-  }
-
-  private static calculateCorrelation(x: number[], y: number[]): number {
-    const n = x.length;
-    const sumX = x.reduce((a, b) => a + b, 0);
-    const sumY = y.reduce((a, b) => a + b, 0);
-    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
-    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
-    const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
-    
-    const numerator = n * sumXY - sumX * sumY;
-    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
-    
-    return denominator === 0 ? 0 : numerator / denominator;
+  private static getEmptyResult(): AnalyticsResult {
+    return {
+      summary: {
+        totalDatasets: 0,
+        totalRecords: 0,
+        domains: {},
+        lastUpdated: new Date()
+      },
+      insights: [],
+      crossDatasetInsights: [],
+      recommendations: [
+        "Upload your first dataset to start getting insights",
+        "Try uploading different types of data to discover correlations",
+        "Use the text input to quickly add data points"
+      ],
+      charts: [],
+      aiInsights: [],
+      aiAnalysis: null,
+      aiSummary: "No data available for analysis"
+    };
   }
 } 
