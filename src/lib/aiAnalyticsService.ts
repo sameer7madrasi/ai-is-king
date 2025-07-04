@@ -105,11 +105,11 @@ export class AIAnalyticsService {
       }
 
       // Generate cross-dataset insights
-      const crossDatasetInsights = await this.generateCrossDatasetInsights(datasets, context);
+      const crossDatasetInsights = await this.generateCrossDatasetInsightsFromData(datasets, context);
       
       // Generate overall summary and recommendations
       const overallSummary = await this.generateOverallSummary(datasets, individualAnalyses, context);
-      const recommendations = await this.generateGlobalRecommendations(datasets, individualAnalyses, context);
+      const recommendations = await this.generateGlobalRecommendationsFromData(datasets, individualAnalyses, context);
 
       return {
         individualAnalyses,
@@ -262,7 +262,7 @@ export class AIAnalyticsService {
     return this.parseAnalysisResponse(response);
   }
 
-  private static async generateCrossDatasetInsights(
+  private static async generateCrossDatasetInsightsFromData(
     datasets: DatasetMetadata[],
     context?: AIContext
   ): Promise<AIInsight[]> {
@@ -302,7 +302,7 @@ export class AIAnalyticsService {
     return response.trim();
   }
 
-  private static async generateGlobalRecommendations(
+  private static async generateGlobalRecommendationsFromData(
     datasets: DatasetMetadata[],
     individualAnalyses: Record<string, AIDataAnalysis>,
     context?: AIContext
