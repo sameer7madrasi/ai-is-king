@@ -40,7 +40,7 @@ export default function UploadPage() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Failed to process entry");
-      setHistory((h) => [...h, { id: Date.now() + "-ai", type: 'text', content: "Entry received! (stub)", from: 'ai' }]);
+      setHistory((h) => [...h, { id: Date.now() + "-ai", type: 'text', content: data.aiResponse || "Entry received!", from: 'ai' }]);
     } catch (err: any) {
       setError(err.message || "Unknown error");
     } finally {
