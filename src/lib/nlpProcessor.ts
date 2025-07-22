@@ -310,7 +310,9 @@ Be precise and extract all relevant information.`;
       health_metrics: [],
       improvement_areas: [],
       activities: [],
-      measurements: []
+      measurements: [],
+      food: [],
+      home: []
     };
     
     const lowerText = text.toLowerCase();
@@ -345,6 +347,22 @@ Be precise and extract all relevant information.`;
       categories.measurements.push('distance_time');
     }
     
+    // Food indicators
+    const foodWords = [
+      'lunch', 'dinner', 'breakfast', 'rice', 'curry', 'egg', 'meal', 'cook', 'kitchen', 'dish', 'spice', 'vegetable', 'delicious', 'taste', 'menu', 'phenomenal', 'recipe', 'food', 'snack', 'eat', 'eating', 'plate', 'flavor', 'sambar', 'thenga', 'chutney', 'cooking', 'prepared'
+    ];
+    if (foodWords.some(word => lowerText.includes(word))) {
+      categories.food.push('meal');
+    }
+    
+    // Home indicators
+    const homeWords = [
+      'home', 'family', 'house', 'room', 'living', 'kitchen', 'clean', 'organize', 'decorate', 'relax', 'comfort', 'chores', 'sofa', 'bed', 'living room', 'dining', 'apartment', 'residence', 'stay', 'household', 'domestic', 'tidy', 'laundry', 'sweep', 'mop', 'vacuum'
+    ];
+    if (homeWords.some(word => lowerText.includes(word))) {
+      categories.home.push('home_life');
+    }
+    
     return categories;
   }
 
@@ -357,7 +375,9 @@ Be precise and extract all relevant information.`;
       skills: [],
       activities: [],
       measurements: [],
-      time_periods: []
+      time_periods: [],
+      food_items: [],
+      home_items: []
     };
     
     const lowerText = text.toLowerCase();
@@ -399,6 +419,26 @@ Be precise and extract all relevant information.`;
     timePeriods.forEach(period => {
       if (lowerText.includes(period)) {
         entities.time_periods.push(period);
+      }
+    });
+    
+    // Food items
+    const foodItems = [
+      'rice', 'curry', 'egg', 'thenga', 'sambar', 'chutney', 'dal', 'roti', 'bread', 'vegetable', 'salad', 'chicken', 'fish', 'meat', 'paneer', 'tofu', 'soup', 'noodle', 'pasta', 'spice', 'pepper', 'salt', 'oil', 'ghee', 'butter', 'milk', 'yogurt', 'curd', 'fruit', 'banana', 'apple', 'orange', 'mango', 'grape', 'berry', 'snack', 'sweet', 'dessert', 'ice cream', 'cake', 'cookie', 'biscuit', 'juice', 'tea', 'coffee'
+    ];
+    foodItems.forEach(item => {
+      if (lowerText.includes(item)) {
+        entities.food_items.push(item);
+      }
+    });
+    
+    // Home items
+    const homeItems = [
+      'sofa', 'bed', 'table', 'chair', 'lamp', 'couch', 'curtain', 'carpet', 'rug', 'pillow', 'blanket', 'sheet', 'wardrobe', 'closet', 'drawer', 'kitchen', 'sink', 'stove', 'oven', 'fridge', 'microwave', 'dishwasher', 'laundry', 'washing machine', 'dryer', 'vacuum', 'broom', 'mop', 'bucket', 'towel', 'mirror', 'toilet', 'shower', 'bathtub', 'door', 'window', 'balcony', 'garden', 'yard', 'garage', 'fence', 'gate', 'roof', 'wall', 'floor', 'ceiling', 'fan', 'ac', 'heater', 'fireplace'
+    ];
+    homeItems.forEach(item => {
+      if (lowerText.includes(item)) {
+        entities.home_items.push(item);
       }
     });
     
@@ -514,7 +554,28 @@ Be precise and extract all relevant information.`;
    */
   private static async detectDomain(text: string, extractedData: ExtractedData): Promise<string> {
     const lowerText = text.toLowerCase();
-    
+    // Food domain
+    const foodWords = [
+      'lunch', 'dinner', 'breakfast', 'rice', 'curry', 'egg', 'meal', 'cook', 'kitchen', 'dish', 'spice', 'vegetable', 'delicious', 'taste', 'menu', 'phenomenal', 'recipe', 'food', 'snack', 'eat', 'eating', 'plate', 'flavor', 'sambar', 'thenga', 'chutney', 'cooking', 'prepared'
+    ];
+    if (
+      foodWords.some(word => lowerText.includes(word)) ||
+      (extractedData.entities.food_items && extractedData.entities.food_items.length > 0) ||
+      (extractedData.categories.food && extractedData.categories.food.length > 0)
+    ) {
+      return 'food';
+    }
+    // Home domain
+    const homeWords = [
+      'home', 'family', 'house', 'room', 'living', 'kitchen', 'clean', 'organize', 'decorate', 'relax', 'comfort', 'chores', 'sofa', 'bed', 'living room', 'dining', 'apartment', 'residence', 'stay', 'household', 'domestic', 'tidy', 'laundry', 'sweep', 'mop', 'vacuum'
+    ];
+    if (
+      homeWords.some(word => lowerText.includes(word)) ||
+      (extractedData.entities.home_items && extractedData.entities.home_items.length > 0) ||
+      (extractedData.categories.home && extractedData.categories.home.length > 0)
+    ) {
+      return 'home';
+    }
     // Sports domain
     if (lowerText.includes('goal') || lowerText.includes('assist') || 
         lowerText.includes('foot') || lowerText.includes('soccer') || 
@@ -522,27 +583,23 @@ Be precise and extract all relevant information.`;
         extractedData.metrics.assists) {
       return 'sports';
     }
-    
     // Health/Fitness domain
     if (lowerText.includes('mile') || lowerText.includes('run') || 
         lowerText.includes('exercise') || lowerText.includes('workout') || 
         extractedData.metrics.miles || extractedData.metrics.kilometers) {
       return 'health';
     }
-    
     // Productivity domain
     if (lowerText.includes('task') || lowerText.includes('project') || 
         lowerText.includes('work') || lowerText.includes('meeting')) {
       return 'productivity';
     }
-    
     // Financial domain
     if (lowerText.includes('dollar') || lowerText.includes('money') || 
         lowerText.includes('cost') || lowerText.includes('price') || 
         lowerText.includes('budget')) {
       return 'financial';
     }
-    
     return 'general';
   }
 
@@ -558,14 +615,12 @@ Be precise and extract all relevant information.`;
     console.log('Extracted data for insights:', extractedData);
     
     const insights: string[] = [];
-    
     // Basic metric insights - always include these if they exist
     Object.entries(extractedData.metrics).forEach(([key, value]) => {
       if (typeof value === 'number' && value > 0) {
         insights.push(`${key}: ${value}`);
       }
     });
-    
     // Domain-specific insights
     if (domain === 'sports') {
       if (extractedData.metrics.goals) {
@@ -584,24 +639,45 @@ Be precise and extract all relevant information.`;
       if (extractedData.metrics.minutes) {
         insights.push(`Worked out for ${extractedData.metrics.minutes} minutes`);
       }
+    } else if (domain === 'food') {
+      if (extractedData.entities.food_items && extractedData.entities.food_items.length > 0) {
+        insights.push(`Food items: ${extractedData.entities.food_items.join(', ')}`);
+      }
+      if (extractedData.sentiment === 'positive') {
+        insights.push('Overall positive performance, well prepared meal.');
+      } else if (extractedData.sentiment === 'negative') {
+        insights.push('Meal could be improved.');
+      } else {
+        insights.push('Meal was okay.');
+      }
+      if (text.toLowerCase().includes('spice')) {
+        insights.push('Spice level mentioned.');
+      }
+    } else if (domain === 'home') {
+      if (extractedData.entities.home_items && extractedData.entities.home_items.length > 0) {
+        insights.push(`Home items mentioned: ${extractedData.entities.home_items.join(', ')}`);
+      }
+      if (extractedData.sentiment === 'positive') {
+        insights.push('Home environment is positive and comfortable.');
+      } else if (extractedData.sentiment === 'negative') {
+        insights.push('Some issues at home, consider improvements.');
+      } else {
+        insights.push('Home situation is stable.');
+      }
     }
-    
     // Entity-based insights
     if (extractedData.entities.body_parts && extractedData.entities.body_parts.length > 0) {
       insights.push(`Focus area: ${extractedData.entities.body_parts.join(', ')}`);
     }
-    
     if (extractedData.entities.skills && extractedData.entities.skills.length > 0) {
       insights.push(`Skills mentioned: ${extractedData.entities.skills.join(', ')}`);
     }
-    
     // Sentiment insights
-    if (extractedData.sentiment === 'positive') {
+    if (extractedData.sentiment === 'positive' && domain !== 'food' && domain !== 'home') {
       insights.push('Overall positive performance');
-    } else if (extractedData.sentiment === 'negative') {
+    } else if (extractedData.sentiment === 'negative' && domain !== 'food' && domain !== 'home') {
       insights.push('Areas for improvement identified');
     }
-    
     // If no insights generated, create basic ones from the text
     if (insights.length === 0) {
       insights.push(`Processed ${domain} data`);
@@ -610,7 +686,6 @@ Be precise and extract all relevant information.`;
         insights.push(`Found ${Object.keys(extractedData.metrics).length} metrics`);
       }
     }
-    
     console.log('Generated insights:', insights);
     return insights;
   }
@@ -624,9 +699,7 @@ Be precise and extract all relevant information.`;
     domain: string
   ): Promise<string[]> {
     console.log('Generating recommendations for domain:', domain);
-    
     const recommendations: string[] = [];
-    
     // Sports recommendations
     if (domain === 'sports') {
       if (extractedData.entities.body_parts && extractedData.entities.body_parts.includes('foot')) {
@@ -639,7 +712,6 @@ Be precise and extract all relevant information.`;
         recommendations.push('Good teamwork - continue building on assists');
       }
     }
-    
     // Health recommendations
     if (domain === 'health') {
       if (extractedData.metrics.miles && extractedData.metrics.miles < 5) {
@@ -649,20 +721,45 @@ Be precise and extract all relevant information.`;
         recommendations.push('Great distance - consider adding speed work');
       }
     }
-    
+    // Food recommendations
+    if (domain === 'food') {
+      if (text.toLowerCase().includes('spice')) {
+        recommendations.push('Keep an eye on spice levels next time you prepare this.');
+      }
+      if (extractedData.entities.food_items && !extractedData.entities.food_items.some(item => ['vegetable', 'salad', 'fruit'].includes(item))) {
+        recommendations.push('Also eat some vegetables goddamn it.');
+      }
+      if (extractedData.sentiment === 'positive') {
+        recommendations.push('Keep up the good work in the kitchen!');
+      } else if (extractedData.sentiment === 'negative') {
+        recommendations.push('Try tweaking the recipe for better results next time.');
+      }
+    }
+    // Home recommendations
+    if (domain === 'home') {
+      if (extractedData.entities.home_items && extractedData.entities.home_items.length > 0) {
+        recommendations.push('Keep your home organized and comfortable.');
+      }
+      if (text.toLowerCase().includes('clean') || text.toLowerCase().includes('tidy')) {
+        recommendations.push('Great job keeping things clean!');
+      }
+      if (extractedData.sentiment === 'negative') {
+        recommendations.push('Consider small changes to improve your home environment.');
+      } else if (extractedData.sentiment === 'positive') {
+        recommendations.push('Enjoy your cozy home!');
+      }
+    }
     // General recommendations based on sentiment
-    if (extractedData.sentiment === 'negative') {
+    if (extractedData.sentiment === 'negative' && recommendations.length === 0) {
       recommendations.push('Review performance and identify specific improvement areas');
-    } else if (extractedData.sentiment === 'positive') {
+    } else if (extractedData.sentiment === 'positive' && recommendations.length === 0) {
       recommendations.push('Keep up the good work and maintain consistency');
     }
-    
     // Default recommendations if none generated
     if (recommendations.length === 0) {
       recommendations.push('Continue tracking your progress');
       recommendations.push('Set specific goals for improvement');
     }
-    
     console.log('Generated recommendations:', recommendations);
     return recommendations;
   }
